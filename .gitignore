@@ -1,0 +1,51 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Jupyter / IPython ─────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── Dataset (large binary files – download separately from Kaggle) ────────────
+assignment/data/Train/
+assignment/data/Test/
+
+# ── Model checkpoints & saved weights ─────────────────────────────────────────
+checkpoints/
+*.pt
+*.pth
+*.h5
+*.onnx
+*.pkl
+*.joblib
+
+# ── Experiment outputs ─────────────────────────────────────────────────────────
+outputs/
+runs/
+logs/
+results/
+
+# ── OS / editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── Secrets / credentials ─────────────────────────────────────────────────────
+.env
+*.key
+kaggle.json

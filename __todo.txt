@@ -1,0 +1,1 @@
+create some checkpoints...??? how to do that for google colab??? 
