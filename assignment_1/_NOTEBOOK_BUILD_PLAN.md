@@ -17,7 +17,7 @@ Constants: `SEED=42`, `BATCH_SIZE=64`, `EPOCHS=30`, `LR=1e-3`, `PATIENCE=5`, `NU
 Paths: `DATA_DIR=Path("data")`, `OUT_DIR=Path("outputs")`.
 Helpers: `set_seed(seed)`, `create_output_dirs()`.
 
-### src/data/dataset.py
+### src/datasets/dataset.py
 - `get_base_transforms(size)` — Resize + ToTensor + ImageNet Normalize
 - `get_augment_transforms(size)` — adds RandomHorizontalFlip, ColorJitter, RandomRotation(15)
 - `PokemonDataset(img_dir, transform, csv_path=None, indices=None)`
@@ -26,12 +26,12 @@ Helpers: `set_seed(seed)`, `create_output_dirs()`.
 - `compute_class_weights(labels)` — inverse-frequency weights tensor, shape `(9,)`
 - `get_train_val_loaders(csv_path, img_dir, img_size, batch_size, augment, use_sampler, num_workers)` — stratified 80/20 split
 
-### src/data/eda.py  (stats, no plots, prints to stdout)
+### src/datasets/eda.py  (stats, no plots, prints to stdout)
 - `class_distribution(df)` — counts + percentages + imbalance ratio, prints summary, returns DataFrame
 - `image_size_distribution(img_dir)` — dict of `{(W,H): count}`, prints uniform/warning
 - `check_data_integrity(img_dir, df=None)` — tries to open every image, prints bad filenames, returns `(valid, invalid)` counts
 
-### src/data/eda_plots.py  (figures, no stdout stats)
+### src/datasets/eda_plots.py  (figures, no stdout stats)
 All functions: save PNG to `outputs/plots/<filename>.png` AND return the `plt.Figure` object.
 
 | Function                                                     | Saved file                           | What it shows                                                  |
@@ -261,8 +261,8 @@ display(Image("outputs/plots/task1_confusion.png"))
 
 Before building the full notebook, run the `__main__` blocks in the EDA modules directly:
 ```
-python src/data/eda.py
-python src/data/eda_plots.py
+python src/datasets/eda.py
+python src/datasets/eda_plots.py
 ```
 
 `eda.py __main__` tests all 3 stats functions on the full dataset.
@@ -277,8 +277,8 @@ Never set it in the notebook — the default interactive backend renders plots i
 ## 6. Implementation Order for the Agent
 
 ```
-1. Run smoke tests: python src/data/eda.py ; python src/data/eda_plots.py
-2. Run all other tests: python src/data/dataset_test.py ; python src/training/train_test.py ; python src/models/models_test.py
+1. Run smoke tests: python src/datasets/eda.py ; python src/datasets/eda_plots.py
+2. Run all other tests: python src/datasets/dataset_test.py ; python src/training/train_test.py ; python src/models/models_test.py
 3. Build notebook.ipynb with the cell structure above (Section 4)
 4. Run notebook locally cell by cell — confirm each cell outputs something sensible
 5. Fill in Markdown finding placeholders after seeing real results
@@ -307,3 +307,4 @@ Never set it in the notebook — the default interactive backend renders plots i
 Everything in `src/` is done and tested. Do not modify any `src/` file.
 Do not modify `task1_mlp.py`, `requirements.txt`, `setup.cfg`, `pyproject.toml`.
 Only create/edit: `notebook.ipynb`.
+

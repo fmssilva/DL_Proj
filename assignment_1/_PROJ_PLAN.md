@@ -101,7 +101,7 @@ OUT_DIR     = Path("outputs")
 
 ---
 
-## Data Pipeline (`src/data/dataset.py`)
+## Data Pipeline (`src/datasets/dataset.py`)
 
 **`PokemonDataset`** — torch Dataset that reads `train_labels.csv`, maps UUID to image path, and encodes labels as integers.
 
@@ -117,7 +117,7 @@ OUT_DIR     = Path("outputs")
 
 ---
 
-## EDA (`src/data/eda.py` and `src/data/eda_plots.py`)
+## EDA (`src/datasets/eda.py` and `src/datasets/eda_plots.py`)
 
 `eda.py` computes and prints stats (no plots). `eda_plots.py` saves figures to `outputs/plots/`. Both are called from `task1_mlp.py`.
 
@@ -319,13 +319,13 @@ tqdm>=4.66
 
 ### Foundation (unblocks everything else)
 - [ ] `src/config.py`
-- [ ] `src/data/dataset.py` + `dataset_test.py`
+- [ ] `src/datasets/dataset.py` + `dataset_test.py`
 - [ ] `src/evaluation/metrics.py` + `submission.py`
 - [ ] `src/training/train.py` + `early_stopping.py` + `train_test.py`
 - [ ] `src/evaluation/plots.py`
 
 ### Task 1
-- [ ] `src/data/eda.py` + `eda_plots.py`
+- [ ] `src/datasets/eda.py` + `eda_plots.py`
 - [ ] `src/models/mlp.py` + `models_test.py`
 - [ ] `task1_mlp.py`
 

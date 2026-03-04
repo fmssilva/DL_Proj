@@ -42,7 +42,7 @@ No __main__ block needed. No other functions — just constants and these two sm
 
 ---
 
-## Step 2 — src/data/dataset.py + dataset_test.py
+## Step 2 — src/datasets/dataset.py + dataset_test.py
 
 Core data pipeline. Everything else depends on this.
 
@@ -71,7 +71,7 @@ What to implement in dataset_test.py (__main__ block):
 - Augment transform output has same shape as base transform output
 - Inference mode (csv_path=None): dataset over Test/ returns (tensor, uuid_string) tuples, no label, length 900
 
-Run with: python src/data/dataset_test.py
+Run with: python src/datasets/dataset_test.py
 Must pass fully on CPU before moving on.
 
 ---
@@ -120,7 +120,7 @@ Run with: python src/training/train_test.py
 
 ---
 
-## Step 5 — src/data/eda.py + eda_plots.py
+## Step 5 — src/datasets/eda.py + eda_plots.py
 
 EDA drives architecture decisions — document what each finding implies.
 Run after Step 2 is working (needs dataset.py and config.py).
@@ -264,3 +264,4 @@ ImageNet normalization: mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
 ```
 
 Use these numbers in test assertions to catch any data loading bugs early.
+

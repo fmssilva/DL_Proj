@@ -18,7 +18,7 @@ Comments & Logs
 File & Folder Structure				
     Prefer this pattern — everything by domain:			
     src/			
-        data/		
+        datasets/		
             dataset.py       # loading + transforms	
             eda.py           # EDA functions	
             eda_plots.py     # EDA visualizations	
