@@ -213,7 +213,86 @@ def plot_pixel_intensity_histogram(
     return fig
 
 
-# ── local test ────────────────────────────────────────────────────────────────
+def compute_dataset_stats(img_dir: Path, df: pd.DataFrame) -> tuple:
+    """
+    Compute per-channel mean and std on the images described by df (a split, not the full set).
+    Call this on the TRAIN split rows only — never pass val rows to avoid leakage.
+    Returns (mean, std) as numpy arrays of shape (3,), values in [0, 1].
+    """
+    img_dir      = Path(img_dir)
+    channel_sum  = np.zeros(3, dtype=np.float64)
+    channel_sq   = np.zeros(3, dtype=np.float64)
+    n_pixels     = 0
+
+    for uid in df["Id"]:
+        p = img_dir / f"{uid}.png"
+        if not p.exists():
+            continue
+        arr = np.array(Image.open(p).convert("RGB"), dtype=np.float32) / 255.0
+        h, w, _ = arr.shape
+        channel_sum += arr.reshape(-1, 3).sum(axis=0)
+        channel_sq  += (arr ** 2).reshape(-1, 3).sum(axis=0)
+        n_pixels    += h * w
+
+    mean = channel_sum / n_pixels
+    std  = np.sqrt(np.maximum(channel_sq / n_pixels - mean ** 2, 0.0))
+    return mean, std
+
+
+def plot_pca_tsne(
+    img_dir: Path,
+    df: pd.DataFrame,
+    n_per_class: int = 40,
+    out_path: Optional[Path] = None,
+) -> plt.Figure:
+    """
+    Flatten images to pixel vectors, reduce with PCA(50) then t-SNE(2D), scatter by class.
+    Shows whether any classes are linearly separable in flat pixel space.
+    n_per_class: how many images to sample per class — keep <= 60 for reasonable runtime.
+    """
+    from sklearn.decomposition import PCA
+    from sklearn.manifold import TSNE
+
+    img_dir = Path(img_dir)
+    rng     = random.Random(SEED)
+    vectors, class_labels = [], []
+
+    for cls in CLASSES:
+        uuids  = df[df["label"] == cls]["Id"].tolist()
+        sample = rng.sample(uuids, min(n_per_class, len(uuids)))
+        for uid in sample:
+            p = img_dir / f"{uid}.png"
+            if not p.exists():
+                continue
+            arr = np.array(Image.open(p).convert("RGB").resize((64, 64)), dtype=np.float32) / 255.0
+            vectors.append(arr.flatten())
+            class_labels.append(cls)
+
+    X = np.stack(vectors)
+
+    # PCA first to reduce noise and speed up t-SNE
+    n_components = min(50, X.shape[0] - 1, X.shape[1])
+    X_pca = PCA(n_components=n_components, random_state=SEED).fit_transform(X)
+
+    # perplexity must be < n_samples
+    perplexity = min(30, len(X_pca) - 1)
+    X_tsne = TSNE(n_components=2, perplexity=perplexity, random_state=SEED, max_iter=500).fit_transform(X_pca)
+
+    # scatter plot, one colour per class
+    colors = plt.cm.tab10(np.linspace(0, 1, len(CLASSES)))
+    fig, ax = plt.subplots(figsize=(9, 7))
+    for i, cls in enumerate(CLASSES):
+        mask = [j for j, c in enumerate(class_labels) if c == cls]
+        ax.scatter(X_tsne[mask, 0], X_tsne[mask, 1], c=[colors[i]], label=cls, s=18, alpha=0.7)
+
+    ax.set_title(f"t-SNE of flat pixel vectors (PCA-{n_components} + t-SNE-2D, {n_per_class}/class)")
+    ax.legend(loc="best", fontsize=8, markerscale=1.5)
+    ax.set_xlabel("t-SNE dim 1")
+    ax.set_ylabel("t-SNE dim 2")
+    fig.tight_layout()
+
+    _save(fig, _resolve(out_path, "plot_pca_tsne"))
+    return fig
 
 if __name__ == "__main__":
     import pandas as _pd
@@ -246,6 +325,16 @@ if __name__ == "__main__":
     fig5 = plot_pixel_intensity_histogram(TRAIN_DIR, df_subset, n_samples=50)
     assert fig5 is not None, "plot_pixel_intensity_histogram returned None"
     print("[PASS] plot_pixel_intensity_histogram")
+
+    mean, std = compute_dataset_stats(TRAIN_DIR, df_subset)
+    assert mean.shape == (3,) and std.shape == (3,), "Stats must be shape (3,)"
+    assert (mean > 0).all() and (std > 0).all(), "mean/std must be positive"
+    print(f"[PASS] compute_dataset_stats: mean={mean.round(3)}, std={std.round(3)}")
+
+    # t-SNE with tiny sample per class — just confirm it runs and returns a Figure
+    fig6 = plot_pca_tsne(TRAIN_DIR, df_full, n_per_class=5)
+    assert fig6 is not None, "plot_pca_tsne returned None"
+    print("[PASS] plot_pca_tsne")
 
     print("All eda_plots tests passed (50-image subset).")
     plt.close("all")

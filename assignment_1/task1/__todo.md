@@ -1,8 +1,3 @@
-## Try Unsupervised Learning
-
-Try some unsupervised learning like PCA or something to see if we get good clusters??
-
----
 
 # 🎮 Pokemon Classifier — Training Checklist
 
@@ -88,7 +83,18 @@ Try some unsupervised learning like PCA or something to see if we get good clust
 
 ---
 
-## PHASE 6 — Data Augmentation (After Solid Baseline)
+
+## PHASE 6 — Class Imbalance
+
+- Weighted loss — higher penalty for underrepresented classes
+- Oversampling minority classes
+- Use F1 score + confusion matrix, not just accuracy
+- Inspect which classes are most confused with each other
+
+---
+
+
+## PHASE 7 — Data Augmentation (After Solid Baseline)
 
 - Horizontal flip
 - Random rotation ±15–30°
@@ -100,14 +106,6 @@ Try some unsupervised learning like PCA or something to see if we get good clust
 
 ---
 
-## PHASE 7 — Class Imbalance
-
-- Weighted loss — higher penalty for underrepresented classes
-- Oversampling minority classes
-- Use F1 score + confusion matrix, not just accuracy
-- Inspect which classes are most confused with each other
-
----
 
 ## PHASE 8 — Final Evaluation
 
@@ -136,3 +134,14 @@ Try some unsupervised learning like PCA or something to see if we get good clust
 ---
 
 **Golden rule:** change ONE thing at a time. Log everything. Trust your validation loss, not your training loss.
+
+
+
+
+
+
+
+
+## Try Unsupervised Learning
+
+Try some unsupervised learning like PCA or something to see if we get good clusters??

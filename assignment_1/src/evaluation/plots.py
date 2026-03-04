@@ -14,13 +14,15 @@ def _save(fig: plt.Figure, out_path: Path) -> None:
     fig.savefig(out_path, bbox_inches="tight", dpi=120)
 
 
-def plot_history(history: dict, out_path: Path) -> plt.Figure:
+def plot_history(history: dict, out_path: Path, title: str = "") -> plt.Figure:
     """
     Plot train/val loss and macro_f1 curves over epochs on the same axes pair.
     history must have keys: train_loss, val_loss, train_f1, val_f1 (lists of floats).
+    title: optional prefix shown in each subplot title — useful when comparing experiments.
     NaN values in train_f1 (e.g. MLP — not tracked per epoch) are simply not plotted.
     """
     epochs = range(1, len(history["train_loss"]) + 1)
+    prefix = f"{title} — " if title else ""
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
 
@@ -29,7 +31,7 @@ def plot_history(history: dict, out_path: Path) -> plt.Figure:
     ax1.plot(epochs, history["val_loss"],   label="val_loss",   linewidth=1.5, linestyle="--")
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Loss")
-    ax1.set_title("Loss")
+    ax1.set_title(f"{prefix}Loss")
     ax1.legend()
 
     # macro f1 subplot — skip train_f1 if all NaN
@@ -39,7 +41,7 @@ def plot_history(history: dict, out_path: Path) -> plt.Figure:
     ax2.plot(epochs, history["val_f1"], label="val_f1", linewidth=1.5, linestyle="--")
     ax2.set_xlabel("Epoch")
     ax2.set_ylabel("Macro F1")
-    ax2.set_title("Macro F1")
+    ax2.set_title(f"{prefix}Macro F1")
     ax2.legend()
 
     fig.tight_layout()

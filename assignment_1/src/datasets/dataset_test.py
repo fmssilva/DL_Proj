@@ -123,6 +123,93 @@ def test_inference_mode():
     print(f"[PASS] inference mode: {len(ds)} images, sample uuid={uuid!r}, shape={tensor.shape}")
 
 
+def test_dataloader_batch_shapes():
+    """DataLoader must yield (B, C, H, W) batches — NOT individual (C, H, W) tensors.
+
+    Transforms in __getitem__ run per-image (unavoidable — each image is a separate
+    file), but the DataLoader collates individual tensors into batches automatically.
+    This test proves that the training loop always sees full batches.
+    """
+    import torch
+
+    train_loader, val_loader = get_train_val_loaders(
+        CSV_PATH, TRAIN_DIR, _IMG_SIZE, _BATCH_SIZE, augment=False, use_sampler=False
+    )
+
+    for split_name, loader in [("train", train_loader), ("val", val_loader)]:
+        images, labels = next(iter(loader))
+
+        # must be 4-D: (Batch, Channels, Height, Width)
+        assert images.ndim == 4, \
+            f"[{split_name}] Expected 4D batch (B,C,H,W), got {images.ndim}D tensor"
+        assert images.shape[1:] == (3, _IMG_SIZE, _IMG_SIZE), \
+            f"[{split_name}] Wrong spatial/channel dims: {images.shape[1:]}"
+        assert images.dtype == torch.float32, \
+            f"[{split_name}] Expected float32, got {images.dtype}"
+
+        # labels must be a 1-D vector, one entry per image in the batch
+        assert labels.ndim == 1, \
+            f"[{split_name}] Labels must be 1D, got {labels.ndim}D"
+        assert labels.shape[0] == images.shape[0], \
+            f"[{split_name}] Batch size mismatch: images {images.shape[0]} vs labels {labels.shape[0]}"
+
+        print(f"[PASS] {split_name} DataLoader batch: images={tuple(images.shape)}, "
+              f"labels={tuple(labels.shape)}, dtype={images.dtype}")
+
+
+def test_no_train_val_overlap():
+    """The train and val index sets must be completely disjoint — no data leakage."""
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+    from src.config import SEED, CLASSES
+
+    df = pd.read_csv(CSV_PATH)
+    label_to_idx = {c: i for i, c in enumerate(CLASSES)}
+    all_labels   = [label_to_idx[lbl] for lbl in df["label"]]
+    all_indices  = list(range(len(df)))
+
+    train_idx, val_idx = train_test_split(
+        all_indices, test_size=0.2, random_state=SEED, stratify=all_labels
+    )
+
+    overlap = set(train_idx) & set(val_idx)
+    assert len(overlap) == 0, f"Data leakage: {len(overlap)} indices appear in both train and val"
+    assert len(train_idx) + len(val_idx) == len(df), "Indices don't cover the full dataset"
+    print(f"[PASS] no train/val overlap: {len(train_idx)} train + {len(val_idx)} val = {len(df)} total")
+
+
+def test_stratified_class_ratio():
+    """Class proportions in train and val must each be within 2% of the full-set proportion."""
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+    from src.config import SEED, CLASSES
+
+    df = pd.read_csv(CSV_PATH)
+    label_to_idx = {c: i for i, c in enumerate(CLASSES)}
+    all_labels   = [label_to_idx[lbl] for lbl in df["label"]]
+    all_indices  = list(range(len(df)))
+
+    train_idx, val_idx = train_test_split(
+        all_indices, test_size=0.2, random_state=SEED, stratify=all_labels
+    )
+
+    full_labels  = [all_labels[i] for i in all_indices]
+    train_labels = [all_labels[i] for i in train_idx]
+    val_labels   = [all_labels[i] for i in val_idx]
+
+    for cls_idx, cls_name in enumerate(CLASSES):
+        full_pct  = full_labels.count(cls_idx)  / len(full_labels)
+        train_pct = train_labels.count(cls_idx) / len(train_labels)
+        val_pct   = val_labels.count(cls_idx)   / len(val_labels)
+
+        assert abs(train_pct - full_pct) < 0.02, \
+            f"{cls_name}: train proportion {train_pct:.3f} drifts > 2% from full {full_pct:.3f}"
+        assert abs(val_pct - full_pct) < 0.02, \
+            f"{cls_name}: val proportion {val_pct:.3f} drifts > 2% from full {full_pct:.3f}"
+
+    print(f"[PASS] stratified split: all 9 classes within 2% proportion in train and val")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("dataset_test.py — running all tests")
@@ -133,6 +220,9 @@ if __name__ == "__main__":
     test_class_weights()
     test_augment_same_shape()
     test_inference_mode()
+    test_dataloader_batch_shapes()
+    test_no_train_val_overlap()
+    test_stratified_class_ratio()
     # stratified split iterates all loaders — slowest, keep last
     test_stratified_split()
     print("=" * 60)

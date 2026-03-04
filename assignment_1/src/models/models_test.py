@@ -4,7 +4,7 @@
 import torch
 
 from src.config import NUM_CLASSES
-from src.models.mlp import MLP
+from src.models.mlp import MLP, NarrowMLP, BottleneckMLP
 
 # use same defaults as the notebook to keep tests meaningful
 _IMG_SIZE = 64
@@ -27,11 +27,45 @@ def test_mlp_forward():
     print(f"[PASS] MLP forward: output shape={out.shape}, params={n_params:,}")
 
 
+def test_narrow_mlp_forward():
+    """NarrowMLP must accept (B, C, H, W) and return (B, 9)."""
+    model = NarrowMLP(img_size=_IMG_SIZE).eval()
+    x = torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE)
+
+    with torch.no_grad():
+        out = model(x)
+
+    assert out.shape == (4, NUM_CLASSES), \
+        f"Expected (4, {NUM_CLASSES}), got {out.shape}"
+    assert not torch.isnan(out).any(), "NaN values in NarrowMLP output"
+
+    n_params = sum(p.numel() for p in model.parameters())
+    print(f"[PASS] NarrowMLP forward: output shape={out.shape}, params={n_params:,}")
+
+
+def test_bottleneck_mlp_forward():
+    """BottleneckMLP must accept (B, C, H, W) and return (B, 9)."""
+    model = BottleneckMLP(img_size=_IMG_SIZE).eval()
+    x = torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE)
+
+    with torch.no_grad():
+        out = model(x)
+
+    assert out.shape == (4, NUM_CLASSES), \
+        f"Expected (4, {NUM_CLASSES}), got {out.shape}"
+    assert not torch.isnan(out).any(), "NaN values in BottleneckMLP output"
+
+    n_params = sum(p.numel() for p in model.parameters())
+    print(f"[PASS] BottleneckMLP forward: output shape={out.shape}, params={n_params:,}")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("models_test.py — running all tests")
     print("=" * 60)
     test_mlp_forward()
+    test_narrow_mlp_forward()
+    test_bottleneck_mlp_forward()
     print("=" * 60)
     print("All model tests passed.")
     print("=" * 60)
