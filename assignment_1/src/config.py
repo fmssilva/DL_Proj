@@ -11,15 +11,15 @@ import torch
 SEED = 42
 
 # ── fast-run flag ─────────────────────────────────────────────────────────────
-# Set to True to test the full pipeline quickly on CPU (2 epochs, early patience).
-# Set to False before a real training run on Colab GPU.
+# True  -> 2 epochs, patience 1 — just enough to verify the pipeline runs end-to-end.
+# False -> 30 epochs, patience 5 — use this on Colab GPU for the real training run.
 FAST_RUN = True
 
 # ── training ─────────────────────────────────────────────────────────────────
 BATCH_SIZE  = 64
-EPOCHS      = 4  if FAST_RUN else 30
+EPOCHS      = 2  if FAST_RUN else 30
 LR          = 1e-3
-PATIENCE    = 2  if FAST_RUN else 5
+PATIENCE    = 1  if FAST_RUN else 5
 NUM_WORKERS = 2
 
 # ── image sizes ───────────────────────────────────────────────────────────────

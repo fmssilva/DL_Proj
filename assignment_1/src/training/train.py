@@ -21,11 +21,7 @@ def train_one_epoch(
     device: torch.device,
     scaler: Optional[GradScaler] = None,
 ) -> float:
-    """
-    One full pass over the training loader.
-    scaler != None enables AMP (Task 3 only); None = normal FP32 (Tasks 1 & 2).
-    Returns average loss over the epoch.
-    """
+    """One full pass over the training loader. Returns average loss."""
     model.train()
     total_loss = 0.0
 
@@ -61,14 +57,11 @@ def evaluate(
     criterion: nn.Module,
     device: torch.device,
 ) -> dict:
-    """
-    Run the model on loader and return loss, accuracy, and macro F1.
-    Returns: {"loss": float, "acc": float, "macro_f1": float}
-    """
+    """Run the model on loader. Returns {"loss": float, "acc": float, "macro_f1": float}."""
     model.eval()
-    total_loss  = 0.0
-    all_preds   = []
-    all_labels  = []
+    total_loss = 0.0
+    all_preds  = []
+    all_labels = []
 
     with torch.no_grad():
         for images, labels in loader:
@@ -88,34 +81,3 @@ def evaluate(
     macro_f1 = compute_macro_f1(all_labels, all_preds)
 
     return {"loss": avg_loss, "acc": accuracy, "macro_f1": macro_f1}
-
-
-def run_epoch(
-    epoch: int,
-    total_epochs: int,
-    model: nn.Module,
-    train_loader: DataLoader,
-    val_loader: DataLoader,
-    criterion: nn.Module,
-    optimizer: torch.optim.Optimizer,
-    device: torch.device,
-    scaler: Optional[GradScaler] = None,
-) -> tuple[float, dict]:
-    """
-    Convenience wrapper: train + evaluate + print one-line log.
-    Returns (train_loss, val_metrics_dict).
-    """
-    t0 = time.time()
-    train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, scaler)
-    val_metrics = evaluate(model, val_loader, criterion, device)
-    elapsed = time.time() - t0
-
-    print(
-        f"Epoch {epoch}/{total_epochs} | "
-        f"train_loss={train_loss:.4f} | "
-        f"val_loss={val_metrics['loss']:.4f} | "
-        f"val_f1={val_metrics['macro_f1']:.4f} | "
-        f"time={elapsed:.1f}s"
-    )
-
-    return train_loss, val_metrics
