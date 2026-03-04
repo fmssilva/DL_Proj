@@ -9,7 +9,7 @@
 ## 1. Project Status — What Is Already Built and Tested
 
 All foundation code lives in `src/`. Every file has been implemented and tested locally.
-The `pip install -e .` editable install is in place — all `from src.*` imports work with no `sys.path` hacks.
+Imports work via `sys.path.insert(0, ROOT)` where `ROOT` is `assignment_1/` — no `pip install -e .` needed.
 
 ### src/config.py
 Constants: `SEED=42`, `BATCH_SIZE=64`, `EPOCHS=30`, `LR=1e-3`, `PATIENCE=5`, `NUM_WORKERS=2`,
@@ -77,9 +77,10 @@ Saves to: `outputs/checkpoints/task1_mlp_best.pth`, `outputs/plots/task1_history
 `outputs/plots/task1_confusion.png`, `outputs/results/submission_task1.csv`.
 
 ### Packaging
-- `pyproject.toml` + `setup.cfg` at `assignment_1/` root — `pip install -e .` makes all imports work
-- `requirements.txt` — all dependencies listed
-- `INSTALL.md` — instructions for local, Colab, Kaggle
+- `requirements.txt` — all dependencies. Run `pip install -r requirements.txt`.
+- No `pyproject.toml`, no `setup.cfg`, no `pip install -e .`.
+- Imports work when running from `assignment_1/` as the working directory.
+- The notebook setup cell adds `assignment_1/` to `sys.path` explicitly — see Section 3.
 
 ### Data (NOT committed — download from Kaggle)
 ```
@@ -162,19 +163,29 @@ interactive backend renders plots inline automatically.
 
 ### Environment detection (Cell 1 — runs identically locally and in Colab)
 ```python
-import os
+import sys, os
 
-if not os.path.exists("src"):
-    # running in Colab — clone and install
-    import subprocess
-    subprocess.run(["git", "clone", "https://github.com/fmssilva/DL_Proj.git"], check=True)
-    os.chdir("DL_Proj/assignment_1")
-    subprocess.run(["pip", "install", "-e", ".", "-q"], check=True)
-    print("IMPORTANT: Download data from Kaggle and place under data/Train, data/Test, data/train_labels.csv")
-else:
-    print("Running locally — src/ found, skipping clone.")
+IN_COLAB = "google.colab" in sys.modules
+
+if IN_COLAB:
+    if not os.path.exists("/content/DL_Proj"):
+        !git clone https://github.com/fmssilva/DL_Proj.git /content/DL_Proj
+    else:
+        !git -C /content/DL_Proj pull --ff-only
+    os.chdir("/content/DL_Proj/assignment_1")
+    !pip install -r requirements.txt -q
+
+ROOT = os.getcwd()
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+# purge stale cached modules so re-runs always use the latest code on disk
+for k in [k for k in sys.modules if k == "src" or k.startswith("src.")]:
+    del sys.modules[k]
 ```
 This makes the same notebook file work locally AND in Colab without any edits.
+`pip install -r requirements.txt` only installs deps — it does NOT register the package.
+`sys.path.insert(0, ROOT)` is what makes `import src.*` resolve from the filesystem.
 
 ---
 
@@ -198,13 +209,13 @@ This makes the same notebook file work locally AND in Colab without any edits.
 - Section header + 1-2 sentences
 
 **Cell 5 — EDA Stats** (python)
-- `import src.data.eda as eda`
+- `import src.datasets.eda as eda`
 - `eda.class_distribution(df)`, `eda.image_size_distribution(TRAIN_DIR)`, `eda.check_data_integrity(TRAIN_DIR, df)`
 
 **Cell 6 — Markdown: Plot 1 — Class Distribution**
 
 **Cell 7 — Class Distribution Plot** (python)
-- `import src.data.eda_plots as eda_plots`
+- `import src.datasets.eda_plots as eda_plots`
 - `fig = eda_plots.plot_class_distribution(df)` + `plt.show()` + `plt.close(fig)`
 
 **Cell 8 — Markdown: Finding placeholder**
@@ -305,6 +316,6 @@ Never set it in the notebook — the default interactive backend renders plots i
 ## 8. Files NOT to Touch
 
 Everything in `src/` is done and tested. Do not modify any `src/` file.
-Do not modify `task1_mlp.py`, `requirements.txt`, `setup.cfg`, `pyproject.toml`.
+Do not modify `task1_mlp.py` or `requirements.txt`.
 Only create/edit: `notebook.ipynb`.
 
