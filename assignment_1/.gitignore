@@ -1,5 +1,6 @@
 # data is downloaded from Kaggle — never commit it
-data/
+# leading slash anchors this to assignment_1/data/ only — does NOT match src/data/
+/data/
 
 # outputs are generated at runtime
 outputs/

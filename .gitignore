@@ -21,8 +21,7 @@ ENV/
 *.ipynb_checkpoints
 
 # ── Dataset (large binary files – download separately from Kaggle) ────────────
-assignment/data/Train/
-assignment/data/Test/
+assignment_1/data/
 
 # ── Model checkpoints & saved weights ─────────────────────────────────────────
 checkpoints/
