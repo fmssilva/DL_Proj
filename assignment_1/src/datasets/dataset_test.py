@@ -1,11 +1,11 @@
 # Local tests for dataset.py — run on CPU before touching Colab.
-# Run with: python src/data/dataset_test.py  (from assignment_1/ root)
+# Run with: python src/datasets/dataset_test.py  (from assignment_1/ root)
 
 from collections import Counter
 from pathlib import Path
 
 from src.config import BATCH_SIZE, CLASSES, IMG_SIZE_SMALL, NUM_CLASSES
-from src.data.dataset import (
+from src.datasets.dataset import (
     PokemonDataset,
     compute_class_weights,
     get_augment_transforms,

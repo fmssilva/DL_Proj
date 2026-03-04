@@ -10,14 +10,14 @@ from src.config import (
     LR, NUM_WORKERS, OUT_DIR, PATIENCE, SEED,
     create_output_dirs, set_seed,
 )
-from src.data.dataset import (
+from src.datasets.dataset import (
     PokemonDataset,
     compute_class_weights,
     get_base_transforms,
     get_train_val_loaders,
 )
-import src.data.eda as eda
-import src.data.eda_plots as eda_plots
+import src.datasets.eda as eda
+import src.datasets.eda_plots as eda_plots
 from src.evaluation.metrics import classification_report_str
 from src.evaluation.plots import plot_confusion_matrix, plot_history
 from src.evaluation.submission import generate_submission, validate_submission
