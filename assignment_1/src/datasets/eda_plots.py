@@ -1,8 +1,10 @@
-# EDA visualizations — saves all figures to outputs/plots/ and returns them.
-# No stdout stats here — see eda.py. Called from task1_mlp.py.
+# EDA visualizations — each function saves a PNG and returns the Figure.
+# out_path is optional: pass it explicitly from the notebook (task-scoped path),
+# or leave it None to fall back to the global OUT_DIR/plots/ default.
 
 import random
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,16 +16,23 @@ from ..config import CLASSES, OUT_DIR, SEED
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _save(fig: plt.Figure, name: str) -> None:
-    """Save figure to outputs/plots/<name>.png."""
-    out = OUT_DIR / "plots"
-    out.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out / f"{name}.png", bbox_inches="tight", dpi=120)
+def _save(fig: plt.Figure, out_path: Path) -> None:
+    """Save figure to the given path, creating parent dirs if needed."""
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, bbox_inches="tight", dpi=120)
+
+
+def _resolve(out_path: Optional[Path], default_name: str) -> Path:
+    """If caller didn't pass an out_path, fall back to the global OUT_DIR/plots/<name>.png."""
+    if out_path is not None:
+        return Path(out_path)
+    return OUT_DIR / "plots" / f"{default_name}.png"
 
 
 # ── plot functions ────────────────────────────────────────────────────────────
 
-def plot_class_distribution(df: pd.DataFrame) -> plt.Figure:
+def plot_class_distribution(df: pd.DataFrame, out_path: Optional[Path] = None) -> plt.Figure:
     """
     Horizontal bar chart of sample counts per class.
     Sorted descending, count + % annotated on bars — highlights imbalance clearly.
@@ -49,11 +58,11 @@ def plot_class_distribution(df: pd.DataFrame) -> plt.Figure:
     ax.invert_yaxis()
     fig.tight_layout()
 
-    _save(fig, "plot_class_distribution")
+    _save(fig, _resolve(out_path, "plot_class_distribution"))
     return fig
 
 
-def plot_sample_images(img_dir: Path, df: pd.DataFrame, n_per_class: int = 4) -> plt.Figure:
+def plot_sample_images(img_dir: Path, df: pd.DataFrame, n_per_class: int = 4, out_path: Optional[Path] = None) -> plt.Figure:
     """
     Grid of n_per_class random sample images per class.
     Fixed seed so the grid is reproducible across runs.
@@ -81,11 +90,11 @@ def plot_sample_images(img_dir: Path, df: pd.DataFrame, n_per_class: int = 4) ->
 
     fig.suptitle("Sample images per class", fontsize=12)
     fig.tight_layout()
-    _save(fig, "plot_sample_images")
+    _save(fig, _resolve(out_path, "plot_sample_images"))
     return fig
 
 
-def plot_average_image_per_class(img_dir: Path, df: pd.DataFrame) -> plt.Figure:
+def plot_average_image_per_class(img_dir: Path, df: pd.DataFrame, out_path: Optional[Path] = None) -> plt.Figure:
     """
     Compute mean pixel image per class and display as a 1-row grid.
     High intra-class variance shows up as blurry mean — informs augmentation choices.
@@ -112,11 +121,11 @@ def plot_average_image_per_class(img_dir: Path, df: pd.DataFrame) -> plt.Figure:
 
     fig.suptitle("Average image per class", fontsize=12)
     fig.tight_layout()
-    _save(fig, "plot_average_image_per_class")
+    _save(fig, _resolve(out_path, "plot_average_image_per_class"))
     return fig
 
 
-def plot_pixel_statistics(img_dir: Path, df: pd.DataFrame) -> plt.Figure:
+def plot_pixel_statistics(img_dir: Path, df: pd.DataFrame, out_path: Optional[Path] = None) -> plt.Figure:
     """
     Per-channel (R/G/B) mean and std across the dataset.
     Prints computed values — tells you whether ImageNet normalisation is a good fit.
@@ -159,12 +168,12 @@ def plot_pixel_statistics(img_dir: Path, df: pd.DataFrame) -> plt.Figure:
 
     fig.suptitle("Pixel Statistics per Channel", fontsize=12)
     fig.tight_layout()
-    _save(fig, "plot_pixel_statistics")
+    _save(fig, _resolve(out_path, "plot_pixel_statistics"))
     return fig
 
 
 def plot_pixel_intensity_histogram(
-    img_dir: Path, df: pd.DataFrame, n_samples: int = 200
+    img_dir: Path, df: pd.DataFrame, n_samples: int = 200, out_path: Optional[Path] = None
 ) -> plt.Figure:
     """
     R/G/B overlay histogram on a random subsample of n_samples images.
@@ -200,7 +209,7 @@ def plot_pixel_intensity_histogram(
     ax.legend()
     fig.tight_layout()
 
-    _save(fig, "plot_pixel_intensity_histogram")
+    _save(fig, _resolve(out_path, "plot_pixel_intensity_histogram"))
     return fig
 
 

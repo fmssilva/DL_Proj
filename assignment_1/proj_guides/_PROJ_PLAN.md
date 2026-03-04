@@ -78,25 +78,32 @@ assignment_1/
 
 ## Config (`src/config.py`) — DONE
 
-Single file with all hyperparameters and paths. Every other file imports from here — no magic numbers anywhere else.
+`src/config.py` holds only **shared immutable constants** — the things that are true for the whole project regardless of which task or run you're doing:
 
 ```python
-SEED        = 42
-FAST_RUN    = True   # 4 epochs / patience 2 for pipeline testing; set False for real runs
-BATCH_SIZE  = 64
-EPOCHS      = 4 if FAST_RUN else 30
-LR          = 1e-3
-PATIENCE    = 2 if FAST_RUN else 5
-NUM_WORKERS = 2
-
-IMG_SIZE_SMALL  = 64    # MLP and CNN
-IMG_SIZE_LARGE  = 224   # Transfer Learning
-
+SEED       = 42
 NUM_CLASSES = 9
-CLASSES     = ["Bug", "Fighting", "Fire", "Grass", "Ground", "Normal", "Poison", "Rock", "Water"]
+CLASSES    = ["Bug", "Fighting", ...]  # label ordering — index i == CLASSES[i] everywhere
+DATA_DIR   = Path("data")
+OUT_DIR    = Path("outputs")   # global fallback
 
-DATA_DIR    = Path("data")
-OUT_DIR     = Path("outputs")
+def set_seed(seed)             # covers random, numpy, torch, torch.cuda, cudnn
+def create_output_dirs()       # creates outputs/{checkpoints,plots,results}/
+def get_task_out_dir(task_name)# creates taskN/outputs/{checkpoints,plots,results}/
+```
+
+**Hyperparameters live in each task's notebook** (not here). FAST_RUN, EPOCHS, LR, BATCH_SIZE, PATIENCE, IMG_SIZE, NUM_WORKERS, N_SAMPLES_PER_CLASS — all set at the top of the notebook setup cell. This keeps the run-level decisions close to where runs happen, and makes it natural to have Task 1, 2, 3 with different values simultaneously.
+
+```python
+# top of task1/notebook.ipynb Cell 1 — the "flip one flag" block
+FAST_RUN            = True    # True = smoke-test (tiny data, 2 epochs) | False = real Colab run
+EPOCHS              = 2  if FAST_RUN else 30
+PATIENCE            = 1  if FAST_RUN else 5
+LR                  = 1e-3
+BATCH_SIZE          = 32 if FAST_RUN else 64
+IMG_SIZE            = 64
+NUM_WORKERS         = 0  if FAST_RUN else 2
+N_SAMPLES_PER_CLASS = 6   # 9*6=54 total training images for local smoke-test
 ```
 
 ---

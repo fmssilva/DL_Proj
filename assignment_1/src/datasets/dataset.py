@@ -52,8 +52,8 @@ class PokemonDataset(Dataset):
     PokemonDataset Class: 
     Loads images and labels for training or inference.
     Modes:
-     - Training: Loads images and their labels from a CSV file.
-     - Inference: If csv_path is None, loads all PNGs from a directory and returns their filenames (UUID stems) instead of labels.
+     - Training: Loads images and their labels from a CSV file or a pre-loaded DataFrame.
+     - Inference: If csv_path is None and df is None, loads all PNGs from a directory and returns their filenames (UUID stems) instead of labels.
     """
 
     def __init__(
@@ -62,20 +62,22 @@ class PokemonDataset(Dataset):
         transform: transforms.Compose,
         csv_path: Optional[Path] = None,
         indices: Optional[list] = None,
+        df: Optional[pd.DataFrame] = None,
     ):
         self.img_dir   = Path(img_dir)
         self.transform = transform
 
-        if csv_path is None:
+        if csv_path is None and df is None:
             # inference mode — no labels, just iterate the test folder
             self._paths  = sorted(self.img_dir.glob("*.png"))
             self._labels = None
         else:
-            df = pd.read_csv(csv_path)
+            # training mode — use provided df or read from csv_path
+            data = df if df is not None else pd.read_csv(csv_path)
             # label string -> int using sorted CLASSES (index is the integer label)
             label_to_idx = {cls: i for i, cls in enumerate(CLASSES)}
-            self._paths  = [self.img_dir / f"{row.Id}.png" for row in df.itertuples()]
-            self._labels = [label_to_idx[row.label] for row in df.itertuples()]
+            self._paths  = [self.img_dir / f"{row.Id}.png" for row in data.itertuples()]
+            self._labels = [label_to_idx[row.label] for row in data.itertuples()]
 
             # support subsetting for stratified splits
             if indices is not None:
@@ -120,13 +122,15 @@ def get_train_val_loaders(
     augment: bool = False,
     use_sampler: bool = False,
     num_workers: int = 2,
+    df_override: Optional[pd.DataFrame] = None,
 ) -> tuple[DataLoader, DataLoader]:
     """
     Stratified 80/20 split -> two DataLoaders.
     augment=True uses get_augment_transforms for the train loader (val always uses base).
     use_sampler=True adds WeightedRandomSampler to the train loader.
+    df_override: pass a pre-filtered DataFrame (e.g. FAST_RUN subset) instead of reading csv_path.
     """
-    df = pd.read_csv(csv_path)
+    df = df_override if df_override is not None else pd.read_csv(csv_path)
     label_to_idx = {cls: i for i, cls in enumerate(CLASSES)}
     all_labels   = [label_to_idx[lbl] for lbl in df["label"]]
     all_indices  = list(range(len(df)))
@@ -141,8 +145,9 @@ def get_train_val_loaders(
     train_transform = get_augment_transforms(img_size) if augment else get_base_transforms(img_size)
     val_transform   = get_base_transforms(img_size)
 
-    train_ds = PokemonDataset(img_dir, train_transform, csv_path, indices=train_idx)
-    val_ds   = PokemonDataset(img_dir, val_transform,   csv_path, indices=val_idx)
+    # pass df directly so PokemonDataset uses the (possibly subsampled) rows, not the full CSV
+    train_ds = PokemonDataset(img_dir, train_transform, df=df, indices=train_idx)
+    val_ds   = PokemonDataset(img_dir, val_transform,   df=df, indices=val_idx)
 
     # build sampler only for train loader when requested
     sampler      = None

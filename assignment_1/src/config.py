@@ -1,5 +1,6 @@
-# Single source of truth for all hyperparameters and paths.
-# Every other file imports from here — no magic numbers anywhere else.
+# Shared constants and helpers used by all tasks and src/ modules.
+# Hyperparameters (epochs, lr, batch size, etc.) live in each task's notebook —
+# they are run-level decisions, not project-level ones.
 
 import random
 from pathlib import Path
@@ -10,30 +11,14 @@ import torch
 # ── reproducibility ───────────────────────────────────────────────────────────
 SEED = 42
 
-# ── fast-run flag ─────────────────────────────────────────────────────────────
-# True  -> 2 epochs, patience 1 — just enough to verify the pipeline runs end-to-end.
-# False -> 30 epochs, patience 5 — use this on Colab GPU for the real training run.
-FAST_RUN = True
-
-# ── training ─────────────────────────────────────────────────────────────────
-BATCH_SIZE  = 64
-EPOCHS      = 2  if FAST_RUN else 30
-LR          = 1e-3
-PATIENCE    = 1  if FAST_RUN else 5
-NUM_WORKERS = 2
-
-# ── image sizes ───────────────────────────────────────────────────────────────
-IMG_SIZE_SMALL = 64   # MLP + CNN
-IMG_SIZE_LARGE = 224  # Transfer Learning (EfficientNet expects 224)
-
-# ── classes ───────────────────────────────────────────────────────────────────
+# ── classes — single source of truth for label ordering ──────────────────────
+# index i maps to CLASSES[i] everywhere; no separate label encoder needed
 NUM_CLASSES = 9
-# sorted alphabetically — index i maps to CLASSES[i] everywhere (no separate encoder)
 CLASSES = ["Bug", "Fighting", "Fire", "Grass", "Ground", "Normal", "Poison", "Rock", "Water"]
 
-# ── paths ─────────────────────────────────────────────────────────────────────
-DATA_DIR = Path("data")
-OUT_DIR  = Path("outputs")
+# ── canonical data paths (relative to assignment_1/ root) ────────────────────
+DATA_DIR  = Path("data")
+OUT_DIR   = Path("outputs")   # kept for any global/shared fallback use
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -44,12 +29,18 @@ def set_seed(seed: int = SEED) -> None:
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    # makes cudnn deterministic — slight perf cost, worth it for reproducibility
+    # cudnn deterministic — slight perf cost, worth it for full reproducibility
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
 
-def create_output_dirs() -> None:
-    """Create the outputs/ folder tree if it doesn't already exist."""
-    for subdir in ["checkpoints", "results", "plots"]:
-        (OUT_DIR / subdir).mkdir(parents=True, exist_ok=True)
+def get_task_out_dir(task_name: str) -> Path:
+    """
+    Return base output dir for a given task (e.g. 'task1') and create subfolders.
+    Each task writes its own checkpoints/plots/results so outputs never mix across tasks.
+    Layout: <task_name>/outputs/{checkpoints,plots,results}/
+    """
+    base = Path(task_name) / "outputs"
+    for subdir in ["checkpoints", "plots", "results"]:
+        (base / subdir).mkdir(parents=True, exist_ok=True)
+    return base

@@ -3,20 +3,20 @@
 import torch
 import torch.nn as nn
 
-from src.config import IMG_SIZE_SMALL, NUM_CLASSES
+from ..config import NUM_CLASSES
 
 
 class MLP(nn.Module):
     """
-    Flatten -> [12288 -> 512 -> 256 -> 128 -> 9]
+    Flatten -> [input_dim -> 512 -> 256 -> 128 -> 9]
     Each hidden layer: Linear -> BatchNorm1d -> ReLU -> Dropout(0.4)
     No softmax — CrossEntropyLoss handles that.
     """
 
-    def __init__(self):
+    def __init__(self, img_size: int = 64):
         super().__init__()
 
-        input_dim = IMG_SIZE_SMALL * IMG_SIZE_SMALL * 3  # 64*64*3 = 12288
+        input_dim = img_size * img_size * 3  # default 64*64*3 = 12288
 
         self.net = nn.Sequential(
             # layer 1

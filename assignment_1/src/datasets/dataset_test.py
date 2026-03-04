@@ -1,10 +1,10 @@
 # Local tests for dataset.py — run on CPU before touching Colab.
-# Run with: python src/datasets/dataset_test.py  (from assignment_1/ root)
+# Run with: python -m src.datasets.dataset_test  (from assignment_1/ root)
 
 from collections import Counter
 from pathlib import Path
 
-from src.config import BATCH_SIZE, CLASSES, IMG_SIZE_SMALL, NUM_CLASSES
+from src.config import CLASSES, NUM_CLASSES
 from src.datasets.dataset import (
     PokemonDataset,
     compute_class_weights,
@@ -18,20 +18,24 @@ CSV_PATH  = Path("data/train_labels.csv")
 TRAIN_DIR = Path("data/Train")
 TEST_DIR  = Path("data/Test")
 
+# test constants — mirror notebook defaults
+_IMG_SIZE   = 64
+_BATCH_SIZE = 64
+
 
 def test_dataset_length():
-    ds = PokemonDataset(TRAIN_DIR, get_base_transforms(IMG_SIZE_SMALL), csv_path=CSV_PATH)
+    ds = PokemonDataset(TRAIN_DIR, get_base_transforms(_IMG_SIZE), csv_path=CSV_PATH)
     assert len(ds) == 3600, f"Expected 3600 samples, got {len(ds)}"
     print(f"[PASS] dataset length: {len(ds)}")
 
 
 def test_item_shape_and_dtype():
-    ds = PokemonDataset(TRAIN_DIR, get_base_transforms(IMG_SIZE_SMALL), csv_path=CSV_PATH)
+    ds = PokemonDataset(TRAIN_DIR, get_base_transforms(_IMG_SIZE), csv_path=CSV_PATH)
     tensor, label = ds[0]
 
     # shape must be (C, H, W) after transform
-    assert tensor.shape == (3, IMG_SIZE_SMALL, IMG_SIZE_SMALL), \
-        f"Expected (3,{IMG_SIZE_SMALL},{IMG_SIZE_SMALL}), got {tensor.shape}"
+    assert tensor.shape == (3, _IMG_SIZE, _IMG_SIZE), \
+        f"Expected (3,{_IMG_SIZE},{_IMG_SIZE}), got {tensor.shape}"
     assert tensor.dtype == __import__("torch").float32, f"Expected float32, got {tensor.dtype}"
 
     # after ImageNet normalisation values live roughly in [-3, 3]
@@ -43,7 +47,7 @@ def test_item_shape_and_dtype():
 
 
 def test_label_range():
-    ds = PokemonDataset(TRAIN_DIR, get_base_transforms(IMG_SIZE_SMALL), csv_path=CSV_PATH)
+    ds = PokemonDataset(TRAIN_DIR, get_base_transforms(_IMG_SIZE), csv_path=CSV_PATH)
     labels = [ds[i][1] for i in range(len(ds))]
     assert min(labels) == 0 and max(labels) == NUM_CLASSES - 1, \
         f"Labels must be in [0, {NUM_CLASSES-1}], got [{min(labels)}, {max(labels)}]"
@@ -52,7 +56,7 @@ def test_label_range():
 
 def test_stratified_split():
     train_loader, val_loader = get_train_val_loaders(
-        CSV_PATH, TRAIN_DIR, IMG_SIZE_SMALL, BATCH_SIZE, augment=False, use_sampler=False
+        CSV_PATH, TRAIN_DIR, _IMG_SIZE, _BATCH_SIZE, augment=False, use_sampler=False
     )
     train_labels = [lbl.item() for _, lbls in train_loader for lbl in lbls]
     val_labels   = [lbl.item() for _, lbls in val_loader   for lbl in lbls]
@@ -77,9 +81,8 @@ def test_stratified_split():
 
 def test_class_weights():
     import pandas as pd
-    from src.config import CLASSES as CLS
     df = pd.read_csv(CSV_PATH)
-    label_to_idx = {c: i for i, c in enumerate(CLS)}
+    label_to_idx = {c: i for i, c in enumerate(CLASSES)}
     labels = [label_to_idx[lbl] for lbl in df["label"]]
 
     weights = compute_class_weights(labels)
@@ -99,8 +102,8 @@ def test_class_weights():
 
 
 def test_augment_same_shape():
-    base_ds  = PokemonDataset(TRAIN_DIR, get_base_transforms(IMG_SIZE_SMALL),   csv_path=CSV_PATH)
-    aug_ds   = PokemonDataset(TRAIN_DIR, get_augment_transforms(IMG_SIZE_SMALL), csv_path=CSV_PATH)
+    base_ds  = PokemonDataset(TRAIN_DIR, get_base_transforms(_IMG_SIZE),   csv_path=CSV_PATH)
+    aug_ds   = PokemonDataset(TRAIN_DIR, get_augment_transforms(_IMG_SIZE), csv_path=CSV_PATH)
     t_base,  _ = base_ds[0]
     t_aug,   _ = aug_ds[0]
     assert t_base.shape == t_aug.shape, \
@@ -109,11 +112,11 @@ def test_augment_same_shape():
 
 
 def test_inference_mode():
-    ds = PokemonDataset(TEST_DIR, get_base_transforms(IMG_SIZE_SMALL), csv_path=None)
+    ds = PokemonDataset(TEST_DIR, get_base_transforms(_IMG_SIZE), csv_path=None)
     assert len(ds) == 900, f"Expected 900 test images, got {len(ds)}"
 
     tensor, uuid = ds[0]
-    assert tensor.shape == (3, IMG_SIZE_SMALL, IMG_SIZE_SMALL), \
+    assert tensor.shape == (3, _IMG_SIZE, _IMG_SIZE), \
         f"Test tensor shape wrong: {tensor.shape}"
     assert isinstance(uuid, str) and len(uuid) > 0, f"Expected UUID string, got: {uuid!r}"
 

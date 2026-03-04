@@ -1,17 +1,20 @@
-# Forward pass tests for all models. Run with: python src/models/models_test.py
+# Forward pass tests for all models. Run with: python -m src.models.models_test
 # Extended for CNN (Task 2) and Transfer (Task 3) once those files exist.
 
 import torch
 
-from src.config import IMG_SIZE_SMALL, NUM_CLASSES
+from src.config import NUM_CLASSES
 from src.models.mlp import MLP
+
+# use same defaults as the notebook to keep tests meaningful
+_IMG_SIZE = 64
 
 
 def test_mlp_forward():
     """Dummy batch through MLP: output shape must be (B, 9), no NaNs."""
-    model = MLP().eval()
-    # (B, C, H, W) — the forward() will flatten it
-    x = torch.randn(4, 3, IMG_SIZE_SMALL, IMG_SIZE_SMALL)
+    model = MLP(img_size=_IMG_SIZE).eval()
+    # (B, C, H, W) — forward() flattens it internally
+    x = torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE)
 
     with torch.no_grad():
         out = model(x)
