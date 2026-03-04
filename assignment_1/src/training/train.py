@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 # torch.amp is the current API; torch.cuda.amp still works but is deprecated in 2.4+
 from torch.amp import GradScaler, autocast
 
-from src.evaluation.metrics import compute_macro_f1
+from ..evaluation.metrics import compute_macro_f1
 
 
 def train_one_epoch(

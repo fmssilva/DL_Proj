@@ -7,7 +7,7 @@ from typing import Optional
 import pandas as pd
 from PIL import Image, UnidentifiedImageError
 
-from src.config import CLASSES
+from ..config import CLASSES
 
 
 def class_distribution(df: pd.DataFrame) -> pd.DataFrame:

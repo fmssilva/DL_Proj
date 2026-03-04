@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision import transforms
 
-from src.config import CLASSES, NUM_CLASSES, SEED
+from ..config import CLASSES, NUM_CLASSES, SEED
 
 
 # ── transforms ────────────────────────────────────────────────────────────────

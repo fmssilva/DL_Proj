@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import torch
 
-from src.config import CLASSES
+from ..config import CLASSES
 
 
 def generate_submission(
