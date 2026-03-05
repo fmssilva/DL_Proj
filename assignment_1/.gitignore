@@ -24,8 +24,6 @@ env/
 # notebooks checkpoints
 .ipynb_checkpoints/
 
-# task1 working notebook — canonical version lives in Colab; local copy is task1_local.ipynb
-task1/task1.ipynb
 
 # OS
 .DS_Store
