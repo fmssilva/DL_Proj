@@ -15,7 +15,7 @@ from torchvision import transforms
 from ..config import CLASSES, NUM_CLASSES, SEED
 
 
-# HELLO
+print("HELLO")
 
 
 # ── transforms ────────────────────────────────────────────────────────────────
