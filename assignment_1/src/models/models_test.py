@@ -4,7 +4,7 @@
 import torch
 
 from src.config import NUM_CLASSES
-from src.models.mlp import MLP, VanillaMLP, VanillaMLP_v2, NarrowMLP, BottleneckMLP
+from src.models.mlp import MLP, VanillaMLP, VanillaMLP_v2, NarrowMLP, WiderMLP, BottleneckMLP
 
 # use same defaults as the notebook to keep tests meaningful
 _IMG_SIZE = 64
@@ -47,6 +47,11 @@ def test_bottleneck_mlp_forward():
     _check_forward(BottleneckMLP(img_size=_IMG_SIZE), torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE), "BottleneckMLP (RGB)")
 
 
+def test_wider_mlp_forward():
+    """WiderMLP RGB forward pass (1024-wide first layer extension variant)."""
+    _check_forward(WiderMLP(img_size=_IMG_SIZE), torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE), "WiderMLP (RGB)")
+
+
 def test_gray_mlp_forward():
     """All models must also accept grayscale (1-channel) input when in_channels=1."""
     gray_input = torch.randn(4, 1, _IMG_SIZE, _IMG_SIZE)
@@ -54,6 +59,7 @@ def test_gray_mlp_forward():
     _check_forward(VanillaMLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "VanillaMLP (gray)")
     _check_forward(VanillaMLP_v2(img_size=_IMG_SIZE, in_channels=1), gray_input, "VanillaMLP_v2 (gray)")
     _check_forward(NarrowMLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "NarrowMLP (gray)")
+    _check_forward(WiderMLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "WiderMLP (gray)")
     _check_forward(BottleneckMLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "BottleneckMLP (gray)")
 
 
@@ -66,6 +72,7 @@ if __name__ == "__main__":
     test_vanilla_mlp_v2_forward()
     test_narrow_mlp_forward()
     test_bottleneck_mlp_forward()
+    test_wider_mlp_forward()
     test_gray_mlp_forward()
     print("=" * 60)
     print("All model tests passed.")

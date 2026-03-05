@@ -118,6 +118,41 @@ class NarrowMLP(nn.Module):
         return self.net(x.view(x.size(0), -1))
 
 
+class WiderMLP(nn.Module):
+    """
+    Extension variant: 1024-wide first layer instead of 512.
+    Same BN+Dropout structure as MLP — tests whether more capacity in the first
+    projection helps learn colour-combination features.
+    in_channels=1 for grayscale input.
+    """
+
+    def __init__(self, img_size: int = 64, dropout: float = 0.3, in_channels: int = 3):
+        super().__init__()
+        input_dim = img_size * img_size * in_channels
+
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 1024),
+            nn.BatchNorm1d(1024),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+
+            nn.Linear(1024, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+
+            nn.Linear(128, NUM_CLASSES),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x.view(x.size(0), -1))
+
+
 class BottleneckMLP(nn.Module):
     """
     Expand-then-compress: input -> 512 -> 1024 -> 256 -> 128 -> 9, with BN+Dropout.

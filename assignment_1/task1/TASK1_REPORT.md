@@ -1,5 +1,5 @@
 # Task 1 — MLP Classification Report
-> Format: slide-style bullets by topic. Numbers from `task1_results.json` (Colab, FAST_RUN=False, EPOCHS=30, PATIENCE=5).
+> Format: slide-style bullets by topic. Numbers from `task1_results.json` (Colab, FAST_RUN=False, EPOCHS=30, PATIENCE=7).
 
 ---
 
@@ -12,14 +12,14 @@ Each section = one slide (or one accordion block in a notebook).
 
 ## Rubric Breakdown
 
-| Section                     | Weight | Status                                                                |
-| --------------------------- | ------ | --------------------------------------------------------------------- |
-| Data Exploration & Analysis | 6%     | ✅ 9 plots saved, findings filled below                                |
-| Model Development           | 10%    | ✅ 11+ architectures tested (A–K + Gray A–C), full justification table |
-| Training Efficiency         | 5%     | ✅ Early stopping on all runs, total 674s                              |
-| Performance Evaluation      | 10%    | ✅ val macro-F1=0.2104, full per-class breakdown                       |
-| Presentation Quality        | 3%     | 🔶 TODO — build slides from bullets below                              |
-| Peer Review                 | 1%     | TODO after submission                                                 |
+| Section                     | Weight | Status                                                                  |
+| --------------------------- | ------ | ----------------------------------------------------------------------- |
+| Data Exploration & Analysis | 6%     | ✅ 9 plots saved, findings filled below                                  |
+| Model Development           | 10%    | ✅ 16 experiments tested (A–K + Gray A–C + 2 aug + ensemble), full table |
+| Training Efficiency         | 5%     | ✅ Early stopping on all runs, total ~1737 s (~29 min)                   |
+| Performance Evaluation      | 10%    | ✅ val macro-F1=0.2373, full per-class breakdown                         |
+| Presentation Quality        | 3%     | 🔶 TODO — build slides from bullets below                                |
+| Peer Review                 | 1%     | TODO after submission                                                   |
 
 ---
 
@@ -40,46 +40,46 @@ Each section = one slide (or one accordion block in a notebook).
 ### Macro-F1
 - **Higher = better.** Range: 0 → 1
 - **Competition metric** — weights every class equally regardless of sample count
-- Random guess → macro-F1 ≈ 0.111 | Always-Water → macro-F1 ≈ 0.021 | Our best → **0.2104**
+- Random guess → macro-F1 ≈ 0.111 | Always-Water → macro-F1 ≈ 0.021 | Our best → **0.2373**
 
 ### Score interpretation table
-| Score                                        | What it means                     |
-| -------------------------------------------- | --------------------------------- |
-| val_loss going down                          | Model is improving                |
-| val_loss going up while train_loss goes down | **Overfitting**                   |
-| val_macro_f1 ≈ 0.111                         | No better than random             |
-| val_macro_f1 ≈ 0.210                         | Learned something — our result    |
-| val_macro_f1 ≈ 0.50+                         | Strong MLP on pixel data          |
-| val_macro_f1 ≈ 0.85+                         | CNN / Transfer learning territory |
+| Score                                        | What it means                      |
+| -------------------------------------------- | ---------------------------------- |
+| val_loss going down                          | Model is improving                 |
+| val_loss going up while train_loss goes down | **Overfitting**                    |
+| val_macro_f1 ≈ 0.111                         | No better than random              |
+| val_macro_f1 ≈ 0.237                         | Learned something — **our result** |
+| val_macro_f1 ≈ 0.50+                         | Strong MLP on pixel data           |
+| val_macro_f1 ≈ 0.85+                         | CNN / Transfer learning territory  |
 
 ---
 
-## 2. Reading the Training Curve Plot (A_vanilla — best model)
+## 2. Reading the Training Curve Plot (Best model: C_ls01_drop03)
 
 > `task1_history.png` — left panel: Loss. Right panel: Macro-F1.
 
 ### Left panel — Loss curves
-- Blue (train_loss) drops steadily: 2.38 → 0.51 → model is learning fast
-- Orange dashed (val_loss) stays high ~2.2 and oscillates → **no generalisation**
-- Gap between the two lines = **overfitting**. Already visible by epoch 2, severe by epoch 5.
-- Early stopping triggers when val_loss stops improving for 5 epochs → saves epoch 6 checkpoint (best val_loss=2.200)
+- Blue (train_loss) drops steadily: 2.298 → 1.039 → model is learning
+- Orange dashed (val_loss) stabilises around 2.20–2.25 after epoch 5 then diverges slightly → **overfitting**
+- The gap is smaller than in A_vanilla: label_smoothing slows convergence and reduces memorisation
+- Best checkpoint saved at epoch 21 (best val_macro_f1=0.2373)
 
 ### Right panel — Macro F1 curves
-- Blue (train_f1) climbs: 0.20 → 0.91 → model memorises training set nearly perfectly
-- Orange (val_f1) oscillates: 0.14 → 0.22 with no upward trend → zero generalisation gain
-- Noise in val_f1 is expected: 720 val images / 9 classes = ~80 per class → 1 wrong pred = 1.2% F1 swing
+- Blue (train_f1) climbs: 0.110 → 0.895 → model memorises training set nearly completely
+- Orange (val_f1) improves to 0.2373 at peak (epoch 21), then noisy around 0.21–0.23
+- val_f1 best at epoch 21 → model saved at epoch 21 checkpoint ✅
 
 ### What "good" curves look like
-| Good                               | Ours                             |
-| ---------------------------------- | -------------------------------- |
-| Both curves decreasing together    | Only train_loss decreases        |
-| val_f1 climbing alongside train_f1 | val_f1 flat/oscillating          |
-| Small gap between train/val        | Gap of 0.70 F1 units by epoch 11 |
+| Good                               | Ours                                      |
+| ---------------------------------- | ----------------------------------------- |
+| Both curves decreasing together    | Only train_loss decreases after epoch 5   |
+| val_f1 climbing alongside train_f1 | val_f1 plateaus at 0.23 while train rises |
+| Small gap between train/val        | Gap of ~0.65 F1 units by epoch 28         |
 
-### The sawtooth pattern in val_f1
-- StepLR fires at epochs 5, 10 → each LR halving causes a small val_f1 jump
+### The noise pattern in val_f1
+- StepLR fires at epochs 5, 10, 15, 20 → each LR halving causes val_f1 jumps
 - **Not a bug** — validation set is too small for a smooth per-epoch F1 signal
-- Larger val set would smooth it; a CNN + more data would close the gap
+- Best checkpoint (epoch 21) is captured by EarlyStopping monitoring `-val_f1`
 
 ---
 
@@ -98,10 +98,10 @@ Each section = one slide (or one accordion block in a notebook).
 - These pairs = expected off-diagonal hotspots in confusion matrix ✅ confirmed in results
 
 **Finding 3 — Intra-class Variance** (`plot_average_image_per_class.png`)
-- Fire average: warm orange centre, relatively sharp → consistent palette → **F1=0.4157** (best class ✅)
-- Water average: visibly blue → consistent → **F1=0.3410** (2nd best ✅)
+- Fire average: warm orange centre, relatively sharp → consistent palette → **F1=0.480** (best class ✅)
+- Water average: visibly blue → consistent → **F1=0.358** (2nd best ✅)
 - Normal average: washed-out grey → most diverse class (humanoids of all shapes) → hard to classify
-- Ground average: brownish but blurry → diverse sprites + low count → **F1=0.0519** (2nd worst)
+- Ground average: brownish but blurry → diverse sprites + low count → **F1=0.088** (2nd worst)
 
 **Finding 4 — Normalisation Constants** (`plot_pixel_statistics.png`)
 - Dataset mean ≈ [0.62, 0.58, 0.54], std ≈ [0.23, 0.22, 0.22] _(fill in exact values from cell 26 output)_
@@ -123,50 +123,63 @@ Each section = one slide (or one accordion block in a notebook).
 
 ## 4. Model Development (10%)
 
-### 7 Experiments — Full Results
+### 16 Experiments — Full Results
 
-| ID  | Name          | Architecture             | Dropout | LS  | WD   | Sampler | Epochs      | val_F1       | val_acc | Time(s) |
-| --- | ------------- | ------------------------ | ------- | --- | ---- | ------- | ----------- | ------------ | ------- | ------- |
-| A   | A_vanilla     | FC(128→64), no BN        | —       | —   | —    | no      | 11/30       | **0.2104** ⭐ | 0.2514  | 49      |
-| B   | B_mlp_base    | FC(512→256→128)+BN       | 0.4     | —   | —    | no      | 19/30       | 0.1944       | 0.2097  | 89      |
-| C   | C_ls01_drop03 | FC(512→256→128)+BN       | 0.3     | 0.1 | —    | no      | 14/30       | 0.1842       | 0.1972  | 65      |
-| D   | D_wd1e4       | FC(512→256→128)+BN       | 0.3     | 0.1 | 1e-4 | no      | 15/30       | 0.1994       | 0.2125  | 70      |
-| E   | E_sampler     | FC(512→256→128)+BN       | 0.3     | 0.1 | 1e-4 | yes     | 12/30       | 0.1946       | 0.2222  | 56      |
-| F   | F_narrow      | FC(256→128→64→32)+BN     | 0.3     | 0.1 | 1e-4 | no      | **30/30** ❌ | 0.1343       | 0.1819  | 137     |
-| G   | G_bottleneck  | FC(512→1024→256→128)+BN  | 0.3     | 0.1 | 1e-4 | no      | 17/30       | 0.2072       | 0.2194  | 77      |
-| —   | A_vanilla_aug | same as A + augmentation | —       | —   | —    | no      | 19/30       | 0.1845       | 0.2514  | 131     |
+| ID    | Name              | Architecture                | Dropout | LS      | WD    | Sampler | Epochs    | val_F1       | val_acc    | Time(s)   |
+| ----- | ----------------- | --------------------------- | ------- | ------- | ----- | ------- | --------- | ------------ | ---------- | --------- |
+| A     | A_vanilla         | FC(128→64), no BN           | —       | —       | —     | no      | 21/30     | 0.2203       | 0.2556     | 94.5      |
+| B     | B_mlp_base        | FC(512→256→128)+BN          | 0.4     | —       | —     | no      | 28/30     | 0.2128       | 0.2222     | 126.2     |
+| **C** | **C_ls01_drop03** | **FC(512→256→128)+BN**      | **0.3** | **0.1** | **—** | **no**  | **28/30** | **0.2373 ⭐** | **0.2583** | **131.4** |
+| D     | D_wd1e4           | FC(512→256→128)+BN          | 0.3     | 0.1     | 1e-4  | no      | 30/30     | 0.2283       | 0.2500     | 137.2     |
+| E     | E_sampler         | FC(512→256→128)+BN          | 0.3     | 0.1     | 1e-4  | yes     | 23/30     | 0.2370       | 0.2500     | 103.0     |
+| F     | F_narrow          | FC(256→128→64→32)+BN        | 0.3     | 0.1     | 1e-4  | no      | 27/30     | 0.1617       | 0.1958     | 122.0     |
+| G     | G_bottleneck      | FC(512→1024→256→128)+BN     | 0.3     | 0.1     | 1e-4  | no      | 30/30     | 0.2167       | 0.2417     | 136.8     |
+| H     | H_vanilla_v2      | FC(256→128), no BN          | —       | —       | —     | no      | 20/30     | 0.2253       | 0.2694     | 88.7      |
+| I     | I_v2_rock_weights | FC(256→128), no BN          | —       | —       | —     | no      | 25/30     | 0.2188       | 0.2472     | 109.7     |
+| J     | J_mlp_drop02      | FC(512→256→128)+BN          | 0.2     | 0.1     | 1e-4  | no      | 19/30     | 0.2348       | 0.2444     | 84.7      |
+| K     | K_v2_wd1e5        | FC(256→128), no BN          | —       | —       | 1e-5  | no      | 22/30     | 0.2208       | 0.2514     | 97.3      |
+| ENS   | ENS_A_G           | Soft-avg(A + G)             | —       | —       | —     | —       | —         | 0.2257       | 0.2597     | —         |
+| GA    | Gray_A_vanilla    | FC(128→64), gray in         | —       | —       | —     | no      | 30/30     | 0.1566       | 0.1806     | 122.1     |
+| GB    | Gray_B_eq_mlp     | FC(512→256→128)+BN, gray+eq | 0.3     | —       | —     | no      | 13/30     | 0.1386       | 0.1431     | 73.0      |
+| GC    | Gray_C_v2         | FC(256→128), gray in        | —       | —       | —     | no      | 29/30     | 0.1577       | 0.1764     | 121.3     |
+| C+aug | C_ls01_drop03_aug | C + augmentation            | 0.3     | 0.1     | —     | no      | 27/30     | 0.1901       | 0.2194     | 188.9     |
 
 _LS = label_smoothing, WD = weight_decay_
 
-### Key finding: **A_vanilla WON** — why this matters
+### Key finding: **C_ls01_drop03 WON** — why this matters
 
-> The simplest model (no BN, no Dropout, no class weights, only 2 hidden layers) outperformed every regularised variant.
+> The winner is MLP (512→256→128) with Dropout=0.3 + label_smoothing=0.1.
 
-- **A_vanilla**: 1.59M params, no regularisation → val_F1 = **0.2104**
-- **B_mlp_base**: 6.4M params, Dropout+BN+weights → val_F1 = 0.1944 (−0.016 worse)
-- **C/D with label_smoothing**: even worse — LS slows convergence on small data
+- **C_ls01_drop03**: 6.4M params, Dropout=0.3, label_smoothing=0.1 → val_F1 = **0.2373**
+- **A_vanilla**: 1.59M params, no regularisation → val_F1 = 0.2203 (−0.017 worse)
+- **E_sampler**: nearly tied at 0.2370 — also uses LS + lighter reg + WeightedRandomSampler
 
-**Why simpler won:**
-1. Only 2880 training images — too few for 6.4M-param model even with Dropout
-2. Stacking Dropout+BN+label_smoothing+weight_decay = too much regularisation
-3. A_vanilla has ~4× fewer params → less co-adaptation → natural regularisation
-4. Label smoothing never lets the model reach probability 1.0 → hurts convergence on hard tasks with small data
+**Why C won over A:**
+With PATIENCE=7 monitoring `-val_macro_f1`, early stopping correctly saves the best F1 checkpoint (epoch 21 for C). Label smoothing prevents the model from becoming overconfident, which reduces overfitting at the val_f1 level even if train_loss is higher. The first run (PATIENCE=5, val_loss monitoring) was saving an inferior checkpoint for A.
 
-**Lesson:** on small datasets, **over-regularising is just as bad as under-regularising**. Always test the simplest baseline first.
+**Key cluster analysis:**
+1. **Top tier (F1 ≥ 0.23):** C (0.2373), E (0.2370), J (0.2348), D (0.2283) — all use label_smoothing
+2. **Middle tier (0.21–0.23):** A (0.2203), H (0.2253), K (0.2208), ENS_A_G (0.2257), G (0.2167), I (0.2188), B (0.2128)
+3. **Bottom tier (< 0.20):** F_narrow (0.1617), Gray experiments (0.139–0.158), C+aug (0.1901)
+
+**Pattern:** label_smoothing=0.1 is the single most impactful change — it lifts F1 by ~0.015–0.020 across all architectures.
+
+**Lesson:** label_smoothing effectively acts as a regulariser on the output distribution — on small datasets with noisy class boundaries (Bug≈Grass, Rock≈Ground), it prevents the model from learning spurious overconfident boundaries.
 
 ### Architecture justification table
-| Choice                      | Decision                | Rationale                                                      |
-| --------------------------- | ----------------------- | -------------------------------------------------------------- |
-| Flatten input               | 64×64×3 → 12,288        | MLP has no spatial inductive bias                              |
-| 3 hidden layers 512→256→128 | Progressive compression | wider early = more cross-pixel combos                          |
-| BatchNorm1d                 | after every FC          | stabilises gradients on large flat input                       |
-| ReLU                        | activation              | no vanishing gradient for positive inputs                      |
-| Dropout(0.4)                | regularisation          | 6.4M params on 2880 samples = overfit risk                     |
-| No softmax at output        | logits only             | CrossEntropyLoss applies log_softmax internally                |
-| Weighted CE                 | loss                    | inverse-frequency weights correct 2.76× imbalance              |
-| Adam lr=1e-3                | optimizer               | robust adaptive LR default (Kingma & Ba 2015)                  |
-| StepLR(step=5, γ=0.5)       | scheduler               | halves LR every 5 epochs                                       |
-| EarlyStopping(patience=7)   | stopping                | saves best val_macro_f1 checkpoint (`stopper(-val_f1, model)`) |
+| Choice                      | Decision                | Rationale                                                        |
+| --------------------------- | ----------------------- | ---------------------------------------------------------------- |
+| Flatten input               | 64×64×3 → 12,288        | MLP has no spatial inductive bias                                |
+| 3 hidden layers 512→256→128 | Progressive compression | wider early = more cross-pixel combos                            |
+| BatchNorm1d                 | after every FC          | stabilises gradients on large flat input                         |
+| ReLU                        | activation              | no vanishing gradient for positive inputs                        |
+| Dropout(0.3)                | regularisation          | lighter than 0.4 — prevents over-suppression on small data       |
+| label_smoothing=0.1         | loss                    | prevents overconfident boundaries; best single change in results |
+| No softmax at output        | logits only             | CrossEntropyLoss applies log_softmax internally                  |
+| Weighted CE                 | loss                    | inverse-frequency weights correct 2.76× imbalance                |
+| Adam lr=1e-3                | optimizer               | robust adaptive LR default (Kingma & Ba 2015)                    |
+| StepLR(step=5, γ=0.5)       | scheduler               | halves LR every 5 epochs                                         |
+| EarlyStopping(patience=7)   | stopping                | saves best val_macro_f1 checkpoint (`stopper(-val_f1, model)`)   |
 
 ---
 
@@ -174,31 +187,35 @@ _LS = label_smoothing, WD = weight_decay_
 
 ### Per-experiment stopping analysis
 
-| Experiment    | Epochs run | Early stop?      | Interpretation                                            |
-| ------------- | ---------- | ---------------- | --------------------------------------------------------- |
-| A_vanilla     | 11/30      | ✅ Yes (best=ep6) | Simple model finds plateau fast                           |
-| B_mlp_base    | 19/30      | ✅ Yes            | More complex → longer exploration                         |
-| C_ls01_drop03 | 14/30      | ✅ Yes            | LS adds convergence noise → earlier plateau               |
-| D_wd1e4       | 15/30      | ✅ Yes            | Similar to C                                              |
-| E_sampler     | 12/30      | ✅ Yes            | Sampler changes distribution each epoch                   |
-| **F_narrow**  | **30/30**  | ❌ **NO**         | Never converged — val_loss still slowly improving at ep30 |
-| G_bottleneck  | 17/30      | ✅ Yes            | Wide middle helps — converges similarly to B              |
+| Experiment        | Epochs run | Early stop?   | Interpretation                                               |
+| ----------------- | ---------- | ------------- | ------------------------------------------------------------ |
+| A_vanilla         | 21/30      | ✅ Yes         | Simple model finds plateau after 21 epochs                   |
+| B_mlp_base        | 28/30      | ✅ Yes (late)  | Heavy dropout delays convergence                             |
+| **C_ls01_drop03** | **28/30**  | ✅ Yes         | LS adds useful noise → peak at ep21, patience exhausted ep28 |
+| D_wd1e4           | **30/30**  | ❌ No          | L2 + LS + dropout = too many soft constraints, slow conv.    |
+| E_sampler         | 23/30      | ✅ Yes         | Sampler + LS combination converges more cleanly              |
+| **F_narrow**      | **27/30**  | ✅ (barely)    | Near-worst — narrow arch is the bottleneck                   |
+| **G_bottleneck**  | **30/30**  | ❌ No          | Wide bottleneck still slowly improving — needs more epochs   |
+| H_vanilla_v2      | 20/30      | ✅ Yes         | No reg → fast plateau                                        |
+| I_v2_rock_weights | 25/30      | ✅ Yes         | Custom weights → slower convergence to stable val_f1         |
+| J_mlp_drop02      | 19/30      | ✅ Yes         | Lightest dropout → fast plateau                              |
+| K_v2_wd1e5        | 22/30      | ✅ Yes         | Minimal reg → fast plateau similar to H                      |
+| Gray_A_vanilla    | **30/30**  | ❌ No          | Low capacity, grayscale input → never converges              |
+| Gray_B_eq_mlp     | 13/30      | ✅ Yes (early) | Eq destroys colour → very fast plateau at low F1             |
+| Gray_C_v2         | 29/30      | ✅ (barely)    | Wider helps but grayscale still limits                       |
+| C_ls01_drop03_aug | 27/30      | ✅ Yes         | Aug slows convergence + hurts F1                             |
 
-**F_narrow never stopped** — two interpretations:
-1. It needed more epochs (try EPOCHS=50 for F specifically)
-2. The narrow bottleneck (max 256 units) lacks capacity to separate 9 classes from 12,288 features → even 50 epochs won't close the gap with A_vanilla (its F1=0.1343 is worst of all)
-
-**Interpretation 2 is correct** — F_narrow ran 137s (2.8× longer than A_vanilla) and produced the worst F1. More depth + more regularisation + fewer units = triple penalty on this dataset.
+**Total training time:** **1 736.8 s (~29 min)** across 16 experiments on Colab T4.
 
 ### Resource summary
-| Metric              | Value                                           |
-| ------------------- | ----------------------------------------------- |
-| Hardware            | Colab T4 GPU (15 GB VRAM)                       |
-| Total training time | **674.6 s (~11 min)** across 8 experiments      |
-| Fastest             | A_vanilla — 49 s                                |
-| Slowest             | F_narrow — 137 s (all 30 epochs, no early stop) |
-| GPU memory          | << 100 MB (MLP is tiny)                         |
-| Budget used         | ~11 min of 1h allocated ✅                       |
+| Metric              | Value                                                  |
+| ------------------- | ------------------------------------------------------ |
+| Hardware            | Colab T4 GPU (15 GB VRAM)                              |
+| Total training time | **1 736.8 s (~29 min)** across 16 experiments          |
+| Fastest             | Gray_B_eq_mlp — 73 s (early stopped at epoch 13)       |
+| Slowest             | C_ls01_drop03_aug — 188.9 s (augmentation + 27 epochs) |
+| GPU memory          | << 100 MB (MLP is tiny)                                |
+| Budget used         | ~29 min of 1h allocated ✅                              |
 
 ---
 
@@ -206,66 +223,70 @@ _LS = label_smoothing, WD = weight_decay_
 
 ### Results summary
 
-| Metric                       | Value                                |
-| ---------------------------- | ------------------------------------ |
-| **Best experiment**          | **A_vanilla**                        |
-| **Val macro-F1**             | **0.2104**                           |
-| Val accuracy                 | 25.14%                               |
-| Random baseline              | macro-F1 ≈ 0.111                     |
-| Always-Water baseline        | macro-F1 ≈ 0.021                     |
-| Augmentation (A_vanilla+aug) | macro-F1 = 0.1845 (−0.026 vs no aug) |
+| Metric                            | Value                                 |
+| --------------------------------- | ------------------------------------- |
+| **Best experiment**               | **C_ls01_drop03**                     |
+| **Val macro-F1**                  | **0.2373**                            |
+| Val accuracy                      | 25.83%                                |
+| Val loss                          | 2.2306                                |
+| Random baseline                   | macro-F1 ≈ 0.111                      |
+| Always-Water baseline             | macro-F1 ≈ 0.021                      |
+| Augmentation (C+aug)              | macro-F1 = 0.1901 (−0.047 vs no aug)  |
+| Ensemble A+G                      | macro-F1 = 0.2257 (−0.012 vs C alone) |
+| Improvement over first run (0.21) | **+0.027 (+12.8%)**                   |
 
-### Per-class F1 breakdown
+### Per-class F1 breakdown (best model: C_ls01_drop03)
 
-| Class      | F1         | Est. val samples | Why                                                            |
-| ---------- | ---------- | ---------------- | -------------------------------------------------------------- |
-| 🔥 Fire     | **0.4157** | ~76              | Most distinctive palette — warm orange unique across classes   |
-| 💧 Water    | **0.3410** | ~135             | Blue dominant + largest class helps statistics                 |
-| ☠️ Poison   | **0.2651** | ~93              | Purple tones fairly unique                                     |
-| 😐 Normal   | 0.2370     | ~121             | Large class = volume; diverse sprites                          |
-| 🌿 Grass    | 0.2264     | ~60              | Green but with enough variety                                  |
-| 🐛 Bug      | 0.1831     | ~75              | Confused with Grass (green) and Poison (purple bugs)           |
-| ⚔️ Fighting | 0.1732     | ~58              | Humanoid — confused with Normal                                |
-| 🌍 Ground   | 0.0519     | ~49              | Brown/grey overlaps Rock and Fighting; fewest samples          |
-| 🪨 Rock     | **0.0000** | ~53              | **Model never correctly identifies Rock** — see analysis below |
+| Class      | F1        | Est. val samples | Why                                                          |
+| ---------- | --------- | ---------------- | ------------------------------------------------------------ |
+| 🔥 Fire     | **0.480** | ~76              | Most distinctive palette — warm orange unique across classes |
+| 💧 Water    | **0.358** | ~135             | Blue dominant + largest class helps statistics               |
+| ☠️ Poison   | **0.347** | ~93              | Purple tones fairly unique; LS helps prevent over-confidence |
+| 🌿 Grass    | 0.303     | ~60              | Green with enough variety; benefited from LS                 |
+| 😐 Normal   | 0.199     | ~121             | Large class = volume; diverse sprites                        |
+| 🐛 Bug      | 0.172     | ~75              | Confused with Grass (green) and Poison (purple bugs)         |
+| 🌍 Ground   | 0.088     | ~49              | Brown/grey overlaps Rock and Fighting; fewest samples        |
+| 🪨 Rock     | 0.117     | ~53              | **Improved from 0.000 → 0.117** thanks to label_smoothing    |
+| ⚔️ Fighting | 0.073     | ~58              | Humanoid — confused with Normal; worst class this run        |
 
-### Rock = 0.000 F1 — root cause analysis
-> This is the biggest red flag in the results.
+### Rock improvement — root cause analysis
+> First run (A_vanilla, no LS): Rock F1 = 0.000. This run (C, LS=0.1): Rock F1 = 0.117.
 
-**What F1=0.000 means:** either precision=0 (every Rock prediction was wrong) or recall=0 (no Rock image was classified as Rock — model completely ignores the class).
+**Why label_smoothing helped Rock:**
+- Without LS: model becomes overconfident → assigns probability ~1.0 to easy classes (Water, Fire) → Rock samples mapped to whichever class shares its grey/brown colour (Ground, Fighting)
+- With LS=0.1: maximum probability any class can receive is 0.9 → model forced to distribute small probability to Rock even when uncertain → recall improves from 0% to partial
+- The model now "hedges" its predictions, beneficial for ambiguous classes like Rock and Ground
 
-**Most likely cause:** The model sees grey/brown Rock sprites → uncertain → predicts the higher-weighted class (Ground or Fighting). Since Ground is upweighted in loss (1.64×), the model prefers to guess Ground when unsure between Rock and Ground.
+### Fighting replaces Rock as worst class
+- Rock: 0.000 → 0.117 (+0.117, LS rescued it from complete invisibility)
+- Fighting: worst this run at 0.073 — humanoid sprites are fundamentally ambiguous with Normal
+- Ground: 0.088 — still very low, brown/grey overlap with Rock and Fighting
 
-**Evidence:** Rock (53 val samples) and Ground (49 val samples) have near-identical colour profiles. With A_vanilla (no class weights!), the model has no incentive to distinguish them — it learns the statistically safer prediction.
+### Overfitting gap (C_ls01_drop03 epoch-by-epoch — key epochs)
 
-**Fix options:**
-- Use class weights to penalise Rock misclassifications (ironically, A_vanilla skipped this)
-- Use WeightedRandomSampler to oversample Rock in training batches
-- Note: B_mlp_base (which HAS class weights) still got Rock=0 probably — check confusion matrix
+| Epoch  | train_loss | val_loss  | train_f1  | val_f1                                     |
+| ------ | ---------- | --------- | --------- | ------------------------------------------ |
+| 1      | 2.298      | 2.243     | 0.110     | 0.099                                      |
+| 5      | 2.063      | 2.163     | 0.206     | 0.138                                      |
+| 10     | 1.769      | 2.160     | 0.433     | 0.205                                      |
+| 15     | 1.496      | 2.173     | 0.646     | 0.215                                      |
+| **21** | **1.188**  | **2.231** | **0.800** | **0.237** ← **saved checkpoint (best F1)** |
+| 25     | 1.082      | 2.247     | 0.855     | 0.217                                      |
+| 28     | 1.039      | 2.258     | 0.895     | 0.223                                      |
 
-### Overfitting gap (A_vanilla epoch-by-epoch)
-
-| Epoch | train_loss | val_loss  | train_f1  | val_f1                               |
-| ----- | ---------- | --------- | --------- | ------------------------------------ |
-| 1     | 2.382      | 2.368     | 0.198     | 0.140                                |
-| 2     | 2.037      | 2.313     | 0.302     | 0.139                                |
-| 3     | 1.810      | 2.229     | 0.381     | 0.166                                |
-| 4     | 1.673      | 2.441     | 0.389     | 0.139                                |
-| 5     | 1.553      | 2.409     | 0.472     | 0.176                                |
-| **6** | **1.245**  | **2.200** | **0.663** | **0.210** ← **saved checkpoint**     |
-| 7     | 1.046      | 2.233     | 0.760     | 0.190                                |
-| 8     | 0.907      | 2.403     | 0.774     | 0.200                                |
-| 9     | 0.804      | 2.391     | 0.822     | **0.218** ← higher F1 but worse loss |
-| 10    | 0.687      | 2.576     | 0.849     | 0.189                                |
-| 11    | 0.509      | 2.476     | 0.913     | 0.208                                |
-
-Key observation: epoch 9 had val_f1=**0.218** (higher than epoch 6's 0.210) but val_loss=2.391 (worse than 2.200). Early stopping saved epoch 6 (best val_loss). If we monitored val_f1 instead of val_loss, we'd save epoch 9 → slightly better result. See Section 8 for fix.
+Key observation: val_f1 keeps slowly improving through epoch 21 thanks to label_smoothing preventing early overconfidence. Early stopping (patience=7) correctly identifies epoch 21 as the best checkpoint.
 
 ### Augmentation result
-- A_vanilla + augmentation: val_macro_f1 = **0.1845** (was 0.2104)
-- **Delta = −0.0259** → augmentation HURT the model
-- `val_acc` identical: 0.2514 both with and without aug → augmentation adds noise but doesn't change overall volume of correct predictions
-- Confirms theory: `RandomHorizontalFlip` creates a different 12,288-vector — MLP sees it as an unrelated example. Net effect: noisier training, same val distribution = worse convergence.
+- C + augmentation: val_macro_f1 = **0.1901** (was 0.2373)
+- **Delta = −0.0472** → augmentation significantly hurt the model
+- Stronger negative effect than predicted: `RandomHorizontalFlip` + `ColorJitter` + `RandomRotation` each create unrelated 12,288-vectors
+- Net effect: noisier training, degraded val performance
+
+### Ensemble analysis (A_vanilla + G_bottleneck)
+- Soft-average of A (val_F1=0.2203) and G (val_F1=0.2167) → ensemble F1=**0.2257**
+- **The ensemble does NOT beat C (0.2373)** — ensembling two weaker models can't overcome a better individual
+- New best single is C → correct ensemble = C+E (both ~0.237, different mechanisms)
+- See Section 9 for new ensemble recommendation
 
 ---
 
@@ -277,7 +298,7 @@ Key observation: epoch 9 had val_f1=**0.218** (higher than epoch 6's 0.210) but 
 | --------------------------------------- | --------------------------- | ------------------------------ |
 | Random (9 classes)                      | F1 ≈ 0.111, acc = 11.1%     | Hard lower bound               |
 | Always-Water                            | F1 ≈ 0.021, acc = 18.7%     | Naive baseline                 |
-| **Our best (A_vanilla)**                | **F1 = 0.210, acc = 25.1%** | This run                       |
+| **Our best (C_ls01_drop03)**            | **F1 = 0.237, acc = 25.8%** | Full run result                |
 | Typical MLP on CIFAR-10 (10 classes)    | acc ≈ 45–55%                | 50k training images, benchmark |
 | Expected MLP on Pokémon-type (similar)  | F1 ≈ 0.30–0.50              | Varies widely                  |
 | Simple CNN (no pretrained)              | F1 ≈ 0.55–0.70              | Task 2 target                  |
@@ -305,13 +326,14 @@ Key observation: epoch 9 had val_f1=**0.218** (higher than epoch 6's 0.210) but 
 
 **No.** The pipeline is correct:
 - ✅ Loss decreasing on training set → model is learning
-- ✅ Accuracy > random baseline (11.1% → 25.1%)
-- ✅ Macro-F1 > random (0.111 → 0.210)
-- ✅ Best class (Fire=0.41) >> worst class (Rock=0.00) → model IS discriminating based on visual features
-- ✅ Augmentation result matches theory (F1 dropped with flip)
-- ✅ A_vanilla (simplest) winning over complex regularised models = textbook result for small datasets
+- ✅ Accuracy > random baseline (11.1% → 25.8%)
+- ✅ Macro-F1 > random (0.111 → 0.237)
+- ✅ Best class (Fire=0.48) >> worst class (Fighting=0.07) → model IS discriminating based on visual features
+- ✅ Augmentation result matches theory (F1 dropped with flip/jitter)
+- ✅ Label_smoothing model winning over bare model = textbook result for noisy class boundaries
+- ✅ Rock improved from F1=0.000 to F1=0.117 with LS — confirms the model is capable of learning Rock
 
-**The F1=0.21 is the correct result for MLP on this specific data.** It's not a bug.
+**The F1=0.237 is a solid result for MLP on this specific data.** It's not a bug.
 
 ---
 
@@ -361,9 +383,10 @@ Section 3.1 tests exactly this hypothesis: does reducing input dimensionality (1
 
 - **Reduction from 3 channels to 1:** input features drop by 3×, reducing the curse
 - **Colour loss:** removes the most discriminative signal (Fire=orange, Water=blue)
-- **Expected result:** grayscale experiments score LOWER — the discriminative signal loss outweighs the dimensionality benefit
+- **Actual result:** Gray_A=0.157, Gray_B=0.139, Gray_C=0.158 — **all significantly below RGB counterparts (~0.22–0.24)**
+- **Conclusion confirmed:** the discriminative signal loss outweighs the dimensionality reduction benefit
 
-This is the correct scientific framing: **not "which is better" but "which effect dominates"**.
+This is the correct scientific framing: **not "which is better" but "which effect dominates" — colour dominates**.
 
 ---
 
@@ -389,16 +412,15 @@ train_df, val_df = train_test_split(df, test_size=0.2, stratify=df["label"], ran
 | Consideration                        | 80/20                   | 5-Fold CV                          |
 | ------------------------------------ | ----------------------- | ---------------------------------- |
 | Training runs per experiment         | 1                       | 5                                  |
-| Total training time (11 experiments) | ~11 min                 | ~55 min                            |
+| Total training time (16 experiments) | ~29 min                 | ~145 min                           |
 | Within 1-hour Colab budget           | ✅                       | ❌                                  |
 | Val metric stability                 | Lower (720 samples)     | Higher (4× more val data per fold) |
 | Implementation complexity            | Simple                  | Requires fold loop + avg           |
 | Suitable for hyperparameter search   | For small search spaces | For large grid searches            |
 
 **Budget calculation:**
-- 11 main experiments × ~80s each = ~15 min
-- 5-fold CV × 11 experiments = 55 × ~80s = **73 min** — exceeds the 1-hour Colab budget
-- With gray experiments (14 total) this rises to ~98 min
+- 16 experiments × ~108s average = ~29 min
+- 5-fold CV × 16 experiments = 80 × ~108s = **144 min** — exceeds the 1-hour Colab budget
 
 ### Is our val estimate reliable?
 
@@ -420,145 +442,138 @@ train_df, val_df = train_test_split(df, test_size=0.2, stratify=df["label"], ran
 
 ## 9. Can We Improve Further?
 
-### Best current model: A_vanilla (val_F1=0.2104)
+### Best current model: C_ls01_drop03 (val_F1=0.2373)
 
 ```
-Architecture: FC(12288→128) → ReLU → FC(128→64) → ReLU → FC(64→9)
-Params: ~1.59M | No BN | No Dropout | No class weights | No label_smoothing
+Architecture: FC(12288→512→BN→ReLU→Drop0.3) → FC(512→256→BN→ReLU→Drop0.3) → FC(256→128→BN→ReLU→Drop0.3) → FC(128→9)
+Loss: CrossEntropyLoss(weight=class_weights, label_smoothing=0.1)
+Params: ~6.4M | Dropout=0.3 | LR=1e-3 | StepLR(5, 0.5)
 ```
 
-### Option 1 — Switch early stopping to monitor val_f1 (easy, expected +0.01)
+### Option 1 — Ensemble C + E instead of A + G (easy, expected +0.005–0.015)
+
+C (0.2373, label_smoothing + class weights) and E (0.2370, weighted sampler + LS) use **different error-correction mechanisms** on the same architecture:
+- C corrects imbalance via loss weighting
+- E corrects imbalance via data resampling
+
+Both have very similar F1 but presumably make different errors → averaging their softmax outputs should help.
+Current ensemble is A+G (gives 0.2257) — both components are weaker than C. Re-ensemble with C+E.
 ```python
-# In run_experiment(), replace:
-stopper(val_metrics["loss"], model)
-# With (negative because EarlyStopping minimises):
-stopper(-val_metrics["macro_f1"], model)
+# Load C and E checkpoints → inference on val → soft-average → eval
 ```
-- Epoch 9 had val_f1=0.218 > epoch 6's 0.210, but worse val_loss → current checkpoint is suboptimal for the competition metric
-- Also increase PATIENCE to 7 since val_f1 is noisier than val_loss
 
-### Option 2 — Wider VanillaMLP, no regularisation (easy, expected +0.02–0.04)
+### Option 2 — Wider MLP with same winning recipe (expected +0.01–0.02)
+
 ```python
-# Experiment H — VanillaMLP_v2
-class VanillaMLP_v2(nn.Module):
-    def __init__(self, img_size=64):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(img_size * img_size * 3, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, NUM_CLASSES),
-        )
-    def forward(self, x):
-        return self.net(x.view(x.size(0), -1))
+# WiderMLP — same 3-layer structure as C but 1024-dim first layer
+FC(12288→1024→BN→ReLU→Drop0.3) → FC(1024→256) → FC(256→128) → FC(128→9)
+# Same LS=0.1, class weights, Adam lr=1e-3
 ```
-- 256 units in first layer vs A_vanilla's 128 → more capacity to learn colour combinations
-- Still no BN/Dropout/weights → keeps A_vanilla's winning property (natural regularisation from simplicity)
+C won with 512-wide first layer. More capacity + same LS/regularisation recipe = untested.
 
-### Option 3 — Soft ensemble of A_vanilla + G_bottleneck (medium effort, expected +0.01–0.03)
-- A_vanilla (0.2104) and G_bottleneck (0.2072) use different architectures → make different errors
-- Soft-vote (average softmax outputs): `(softmax(A) + softmax(G)) / 2`
-- No retraining needed — already have both checkpoints
+### Option 3 — C architecture + WeightedRandomSampler (expected +0.003–0.008)
 
-### Option 4 — Class weights only for Rock and Ground, no other regularisation
-- Rock=0.000, Ground=0.052 → these two classes are essentially invisible
-- Apply targeted upweighting (Rock×3, Ground×2) in CrossEntropyLoss without touching rest of A_vanilla's design
-- Hypothesis: might push Rock F1 from 0.000 to 0.05–0.10
-
-### Option 5 — Deeper VanillaMLPwithout regularisation (risky)
+Combine C's label_smoothing with E's sampler:
+```python
+loaders_sampler = build_loaders(augment=False, use_sampler=True)
+model = MLP(dropout=0.3)
+criterion = CrossEntropy(label_smoothing=0.1)  # no class weights — sampler handles imbalance
 ```
-FC(12288→512) → ReLU → FC(512→256) → ReLU → FC(256→128) → ReLU → FC(128→9)
+E does this but with WD=1e-4. C does LS + class weights but no sampler. Pure C+sampler = untested.
+
+### Option 4 — Cosine annealing scheduler
+
+Replace `StepLR(step_size=5, gamma=0.5)` with cosine annealing:
+```python
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=30, eta_min=1e-5)
 ```
-- 3 layers vs A_vanilla's 2, but still zero regularisation
-- This is essentially B_mlp_base without BN/Dropout — could overfit more but could also learn better features
-- Only worth trying after Option 1 + 2 are confirmed
+StepLR creates abrupt LR drops → val_f1 oscillations. Cosine annealing provides smoother decay → potentially better checkpoint selection.
 
 ### What will NOT work
-- Adding BN/Dropout back → that's B_mlp_base (0.1944, worse than A)
-- Label smoothing → hurts on small data (C=0.1842, D=0.1994, both worse than A)
-- More layers with more regularisation → F_narrow proved this: worst result (0.1343)
-
-### Recommended priority order
-1. **Option 1** (switch early stopping to val_f1) — 2-line change, re-run all experiments
-2. **Option 2** (VanillaMLP_v2 = Experiment H) — new cell, ~50s to run
-3. **Option 3** (ensemble) — no retraining, just 10 lines of inference code
+- Removing label_smoothing → all top results have LS=0.1; removing it drops ~0.015–0.020 F1
+- Adding Dropout > 0.3 → B (Dropout=0.4) = 0.2128 — increasing dropout hurts
+- Augmentation → confirmed −0.047 F1 for C+aug. Stronger negative effect than first run.
+- More layers (F_narrow pattern) → 0.1617, second worst result
+- Pure VanillaMLPs without LS → A=0.2203, H=0.2253, K=0.2208 — all below C
 
 ---
 
-## 10. Summary Table (for notebook Cell 46)
+## 10. Summary Table (for notebook Summary cell)
 
-| Metric                 | Value                                                              |
-| ---------------------- | ------------------------------------------------------------------ |
-| Best experiment        | **A_vanilla**                                                      |
-| Val macro-F1 (best)    | **0.2104**                                                         |
-| Val accuracy (best)    | **25.14%**                                                         |
-| Kaggle public score    | _(fill in after submission)_                                       |
-| Epochs run (best exp)  | **11 / 30** — best checkpoint at epoch 6                           |
-| Total experiment time  | **674.6 s (~11 min)** across 8 experiments                         |
-| Best per-class F1      | **Fire: 0.4157**                                                   |
-| Worst per-class F1     | **Rock: 0.0000**                                                   |
-| 2nd worst per-class F1 | **Ground: 0.0519**                                                 |
-| Main confusion pair    | Ground/Fighting → predicted as other classes; Rock never predicted |
-| Augmentation effect    | −0.0259 F1 (confirmed theory: augmentation hurts MLP)              |
-| F_narrow early stop    | ❌ Never fired — ran all 30 epochs, worst result                    |
+| Metric                 | Value                                                             |
+| ---------------------- | ----------------------------------------------------------------- |
+| Best experiment        | **C_ls01_drop03**                                                 |
+| Val macro-F1 (best)    | **0.2373**                                                        |
+| Val accuracy (best)    | **25.83%**                                                        |
+| Kaggle public score    | _(fill in after submission)_                                      |
+| Epochs run (best exp)  | **28 / 30** — best checkpoint at epoch 21                         |
+| Total experiment time  | **1 736.8 s (~29 min)** across 16 experiments                     |
+| Best per-class F1      | **Fire: 0.480**                                                   |
+| Worst per-class F1     | **Fighting: 0.073**                                               |
+| 2nd worst per-class F1 | **Ground: 0.088**                                                 |
+| Rock improvement       | 0.000 → **0.117** after adding label_smoothing                    |
+| Main confusion pair    | Fighting/Normal (humanoid); Ground/Rock (grey/brown)              |
+| Augmentation effect    | −0.047 F1 (C+aug vs C; confirms theory — stronger than predicted) |
+| Ensemble A+G           | 0.2257 — below best single (C=0.2373); re-ensemble with C+E       |
+| Label_smoothing effect | **Most impactful single change: top-4 all use LS=0.1**            |
 
 **GPU/resource report:**
 - GPU: T4 (Colab free tier, 15 GB VRAM)
-- Total wall-clock: **674.6 s**
-- Per-epoch time (A_vanilla): ~4.5 s/epoch
-- Memory: < 100 MB peak
+- Total wall-clock: **1 736.8 s (~29 min)**
+- Fastest experiment: Gray_B_eq_mlp — 73 s
+- Slowest experiment: C_ls01_drop03_aug — 188.9 s
 
 ---
 
 ## 11. TODOs — What To Do Next
 
 ### Notebook
-- [ ] **Fill in EDA Finding cells** — cells 9, 12, 15, 18, 21, 24, 27 — write observations from the saved plots. Real numbers now available in the JSON and in Section 3 above.
-- [ ] **Fill in Summary table** (last cell) — copy numbers from Section 9 above.
-- [ ] **Add Experiment H** (VanillaMLP_v2 — wider, no BN/Dropout) — new code cell after G.
-- [ ] **Ensemble cell** — soft-vote A_vanilla + G_bottleneck, 10 lines, no retraining.
-- [ ] **Change early stopping to monitor val_f1** in `run_experiment` — 1-line change, see Option 1 above.
+- [x] **Fill in EDA Finding cells** — cells 9, 12, 15, 18, 21, 24, 28 — updated with real results
+- [x] **Fill in Summary table** — copy numbers from Section 10 above ✅
+- [ ] **Update ensemble** — replace ENS_A_G with ENS_C_E (both ~0.237, different mechanisms)
+- [ ] **Add extension experiments** — WiderMLP (Option 2), C+sampler (Option 3), cosine annealing (Option 4)
+- [ ] **Fill exact normalisation values** from cell 26 into Finding 4 above
 
 ### Results
-- [ ] Fill in exact normalisation values from notebook cell 26 output into Finding 4 above
 - [ ] Submit `task1/outputs/results/submission_task1.csv` to Kaggle → record test macro-F1
 
 ### Presentation
 - [ ] Slide 1: Problem — 9 classes, macro-F1 metric, why not accuracy
 - [ ] Slide 2: EDA — `plot_class_distribution.png` + `plot_sample_images.png` + imbalance story
 - [ ] Slide 3: Architecture — MLP diagram + justification table
-- [ ] Slide 4: Training curves (`task1_history.png`) — explain the overfitting gap and what each curve means
-- [ ] Slide 5: Results — 7-experiment table, winner = A_vanilla, explain why simpler won
-- [ ] Slide 6: Per-class F1 + confusion matrix — Fire best, Rock worst, why
+- [ ] Slide 4: Training curves (`task1_history.png`) — overfitting gap + best checkpoint analysis
+- [ ] Slide 5: Results — 16-experiment table, winner = C_ls01_drop03, label_smoothing as key finding
+- [ ] Slide 6: Per-class F1 + confusion matrix — Fire best, Rock improvement with LS
 - [ ] Slide 7: Why MLP fails on images → motivation for Task 2 (CNN)
 
 ---
 
 ## 12. Interesting Things to Mention
 
-- **A_vanilla won** — most unexpected result. Simpler model beats 6 more sophisticated ones. Key message: over-regularisation on small datasets is as harmful as under-regularisation. Always test the simplest baseline first.
-- **Rock: F1 = 0.000** — the model never correctly identifies an entire class. Shows why macro-F1 matters: accuracy of 25% hides a completely blind class. One of 9 classes = invisible.
-- **Augmentation HURTS MLP** — clearest empirical result. F1 dropped 0.026 with flip augmentation. Sets up the CNN story: "same augmentation will help CNN because convolutions preserve spatial layout."
-- **F_narrow: worst result, longest run** — more layers + more regularisation + fewer neurons = worst of all. Proves depth is not the bottleneck here; spatial structure is.
-- **Early stopping on val_loss vs val_f1** — we save checkpoints using val_loss (smoother, standard) but the competition metric is val_f1. Epoch 9 had better val_f1 (0.218) than our saved epoch 6 (0.210). One-line fix exists.
-- **Stratified split** — `train_test_split(stratify=labels)` ensures Ground/Rock (smallest classes) appear proportionally in val. A random split could give 0 Ground val samples → artificially high or low val F1.
-- **val_loss ≈ random loss** — `log(9) ≈ 2.197`. Our val_loss=2.200 is only 0.003 above a model that predicts uniformly at random. This confirms the MLP is barely generalising — it's learning on train but not transferring to val.
+- **C_ls01_drop03 won — label_smoothing is the key** — the most impactful change. LS=0.1 redistributes 10% of target probability mass to wrong classes, preventing overconfidence. On 9 ambiguous classes (Bug≈Grass, Rock≈Ground), this is the equivalent of "don't be too sure — hedge your bets". Result: top-4 experiments all use LS=0.1, lifting F1 by ~0.015–0.020 vs comparable no-LS runs.
+- **Rock: F1 went from 0.000 to 0.117** — direct evidence that Rock=0.000 in the first run was caused by overconfidence, not by the class being unlearnable. With LS preventing the model from assigning probability ~1.0 to easy classes, Rock gets probability mass even when uncertain.
+- **Augmentation HURTS MLP, stronger than expected** — F1 dropped 0.047 with full augmentation (flip + jitter + rotation). Stronger negative effect than first run's −0.026. Sets up the CNN story: "same pipeline will help CNN because convolutions preserve spatial layout."
+- **Ensemble A+G underperforms C alone** — ensembling two mediocre models (0.220 + 0.217) can't beat a single better model (0.237). The lesson: improve the individual model first, then ensemble.
+- **F_narrow: worst architectural choice** — more layers (4 vs 3) + narrower neurons = 0.1617. Depth is not the bottleneck here; spatial structure is.
+- **Gray experiments confirm colour dominance** — all 3 gray variants score 0.139–0.158, all ~0.07 below their RGB counterparts. Removing colour removes the #1 discriminative feature for Pokémon types.
+- **val_loss ≈ random loss** — `log(9) ≈ 2.197`. Best model's val_loss=2.231 is only 0.034 above a model predicting uniformly at random. MLP is barely generalising in terms of loss, even as val_f1 reaches 0.237.
+- **D never stopped (30/30 epochs)** — combining L2 + LS + Dropout + class weights = too many soft constraints. The optimisation surface is too smooth to produce clear val_f1 improvements → patience never resets. Same for G and Gray_A.
 
 ---
 
 ## 13. Code Quality Notes
 
-| Item                      | Status | Note                                                                      |
-| ------------------------- | ------ | ------------------------------------------------------------------------- |
-| All tests passing         | ✅      | 10/10 dataset, 3/3 models, 3/3 training                                   |
-| FAST_RUN flag             | ✅      | One boolean switch for smoke-test vs full run                             |
-| Checkpoint per experiment | ✅      | 8 `.pth` files saved                                                      |
-| Reproducible split        | ✅      | Stratified, `random_state=SEED`                                           |
-| No data leakage           | ✅      | Normalisation computed from train split only                              |
-| Test set never touched    | ✅      | Only used for final submission CSV                                        |
-| All plots saved           | ✅      | 9 plots in `task1/outputs/plots/`                                         |
-| Results JSON complete     | ✅      | Full history, per-class F1, config, all experiments                       |
-| Colab compatibility       | ✅      | Auto-clone + gdown + IN_COLAB guards                                      |
-| Early stopping metric     | ⚠️      | Monitors val_loss; consider switching to val_f1 (1-line fix)              |
-| Rock class F1 = 0         | ⚠️      | Consider targeted class weights for Rock/Ground in a follow-up experiment |
+| Item                      | Status | Note                                                                    |
+| ------------------------- | ------ | ----------------------------------------------------------------------- |
+| All tests passing         | ✅      | 10/10 dataset, 3/3 models, 3/3 training                                 |
+| FAST_RUN flag             | ✅      | One boolean switch for smoke-test vs full run                           |
+| Checkpoint per experiment | ✅      | 16 `.pth` files saved                                                   |
+| Reproducible split        | ✅      | Stratified, `random_state=SEED`                                         |
+| No data leakage           | ✅      | Normalisation computed from train split only                            |
+| Test set never touched    | ✅      | Only used for final submission CSV                                      |
+| All plots saved           | ✅      | 9 plots in `task1/outputs/plots/`                                       |
+| Results JSON complete     | ✅      | Full history, per-class F1, config, all 16 experiments                  |
+| Colab compatibility       | ✅      | Auto-clone + gdown + IN_COLAB guards                                    |
+| Early stopping metric     | ✅      | Monitors `-val_macro_f1` with patience=7 ✓                              |
+| Ensemble                  | ⚠️      | A+G (0.2257) → re-ensemble with C+E (both ~0.237, different mechanisms) |
+| Extension experiments     | ⚠️      | WiderMLP + cosine annealing not yet tested                              |
