@@ -12,14 +12,14 @@ Each section = one slide (or one accordion block in a notebook).
 
 ## Rubric Breakdown
 
-| Section                     | Weight | Status                                             |
-| --------------------------- | ------ | -------------------------------------------------- |
-| Data Exploration & Analysis | 6%     | ✅ 9 plots saved, findings filled below             |
-| Model Development           | 10%    | ✅ 7 architectures tested, full justification table |
-| Training Efficiency         | 5%     | ✅ Early stopping on all runs, total 674s           |
-| Performance Evaluation      | 10%    | ✅ val macro-F1=0.2104, full per-class breakdown    |
-| Presentation Quality        | 3%     | 🔶 TODO — build slides from bullets below           |
-| Peer Review                 | 1%     | TODO after submission                              |
+| Section                     | Weight | Status                                                                |
+| --------------------------- | ------ | --------------------------------------------------------------------- |
+| Data Exploration & Analysis | 6%     | ✅ 9 plots saved, findings filled below                                |
+| Model Development           | 10%    | ✅ 11+ architectures tested (A–K + Gray A–C), full justification table |
+| Training Efficiency         | 5%     | ✅ Early stopping on all runs, total 674s                              |
+| Performance Evaluation      | 10%    | ✅ val macro-F1=0.2104, full per-class breakdown                       |
+| Presentation Quality        | 3%     | 🔶 TODO — build slides from bullets below                              |
+| Peer Review                 | 1%     | TODO after submission                                                 |
 
 ---
 
@@ -155,18 +155,18 @@ _LS = label_smoothing, WD = weight_decay_
 **Lesson:** on small datasets, **over-regularising is just as bad as under-regularising**. Always test the simplest baseline first.
 
 ### Architecture justification table
-| Choice                      | Decision                | Rationale                                         |
-| --------------------------- | ----------------------- | ------------------------------------------------- |
-| Flatten input               | 64×64×3 → 12,288        | MLP has no spatial inductive bias                 |
-| 3 hidden layers 512→256→128 | Progressive compression | wider early = more cross-pixel combos             |
-| BatchNorm1d                 | after every FC          | stabilises gradients on large flat input          |
-| ReLU                        | activation              | no vanishing gradient for positive inputs         |
-| Dropout(0.4)                | regularisation          | 6.4M params on 2880 samples = overfit risk        |
-| No softmax at output        | logits only             | CrossEntropyLoss applies log_softmax internally   |
-| Weighted CE                 | loss                    | inverse-frequency weights correct 2.76× imbalance |
-| Adam lr=1e-3                | optimizer               | robust adaptive LR default (Kingma & Ba 2015)     |
-| StepLR(step=5, γ=0.5)       | scheduler               | halves LR every 5 epochs                          |
-| EarlyStopping(patience=5)   | stopping                | saves best val_loss checkpoint                    |
+| Choice                      | Decision                | Rationale                                                      |
+| --------------------------- | ----------------------- | -------------------------------------------------------------- |
+| Flatten input               | 64×64×3 → 12,288        | MLP has no spatial inductive bias                              |
+| 3 hidden layers 512→256→128 | Progressive compression | wider early = more cross-pixel combos                          |
+| BatchNorm1d                 | after every FC          | stabilises gradients on large flat input                       |
+| ReLU                        | activation              | no vanishing gradient for positive inputs                      |
+| Dropout(0.4)                | regularisation          | 6.4M params on 2880 samples = overfit risk                     |
+| No softmax at output        | logits only             | CrossEntropyLoss applies log_softmax internally                |
+| Weighted CE                 | loss                    | inverse-frequency weights correct 2.76× imbalance              |
+| Adam lr=1e-3                | optimizer               | robust adaptive LR default (Kingma & Ba 2015)                  |
+| StepLR(step=5, γ=0.5)       | scheduler               | halves LR every 5 epochs                                       |
+| EarlyStopping(patience=7)   | stopping                | saves best val_macro_f1 checkpoint (`stopper(-val_f1, model)`) |
 
 ---
 
@@ -315,7 +315,110 @@ Key observation: epoch 9 had val_f1=**0.218** (higher than epoch 6's 0.210) but 
 
 ---
 
-## 8. Can We Improve Further?
+## 8. The Curse of Dimensionality — Why MLP Fails Fundamentally on This Data
+
+### The problem in one sentence
+We have **2 880 training samples** and **12 288 input features** — a feature-to-sample ratio of **4.26:1**. Any unregularised model in this regime will memorise, not learn.
+
+### What the Curse of Dimensionality means here
+
+In a $d$-dimensional input space, the volume of the space grows as $r^d$ where $r$ is the "radius" of the feature space. As $d$ increases:
+
+$$\text{samples needed for meaningful coverage} \propto e^d$$
+
+For our task:
+- $d = 12\,288$ (64×64×3 flattened pixels)
+- Available training samples: 2 880
+- Ratio: 2 880 / 12 288 ≈ **0.23 samples per dimension**
+
+This means the training points are **extremely sparse** in the 12 288-dimensional input space. Any two training images that look visually similar to a human may still be thousands of "distances" apart in pixel space — because a single pixel shifted one row down produces a completely different 12 288-vector.
+
+### Implications for MLP training
+
+| Consequence                                                | Effect on our results                                                       |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------- |
+| No two training points are "close" in pixel space          | No neighbour structure → nearest-neighbour interpolation fails              |
+| MLP decision boundary must span exponentially large space  | With 1.59M params and 2880 samples, many boundary regions are unconstrained |
+| Val set examples fall in unexplored regions of input space | Model generalises only as well as its memorised training manifold allows    |
+| Adding more params makes it worse                          | More unconstrained boundary → more memorisation, less generalisation        |
+
+### Why CNN is immune to this curse (preview)
+
+A CNN does **not** treat each pixel as an independent feature. Instead:
+- A 3×3 conv filter has **27 shared parameters** — the same weights are applied at every spatial position
+- This **parameter sharing** means the model learns translation-equivariant features: "there's a flame shape somewhere" rather than "pixel (3,4) has value 217"
+- The effective input dimensionality is reduced from 12 288 to the number of feature map positions (much smaller for a strided/pooled CNN)
+
+**Key formula:**
+$$\text{MLP parameters per layer} = d_{in} \times d_{out} \quad \text{(e.g., } 12288 \times 512 = 6.3M\text{)}$$
+$$\text{CNN parameters per filter} = k^2 \times C_{in} \times C_{out} \quad \text{(e.g., } 3^2 \times 3 \times 32 = 864 \text{ for first layer)}$$
+
+This is the **fundamental reason** Task 2 (CNN) will significantly outperform Task 1 (MLP) — not a hyperparameter difference.
+
+### Grayscale experiments — dimensionality ablation
+
+Section 3.1 tests exactly this hypothesis: does reducing input dimensionality (12 288 → 4 096 by removing colour) help or hurt?
+
+- **Reduction from 3 channels to 1:** input features drop by 3×, reducing the curse
+- **Colour loss:** removes the most discriminative signal (Fire=orange, Water=blue)
+- **Expected result:** grayscale experiments score LOWER — the discriminative signal loss outweighs the dimensionality benefit
+
+This is the correct scientific framing: **not "which is better" but "which effect dominates"**.
+
+---
+
+## 8a. Validation Strategy — Why 80/20 Split and Not K-Fold Cross-Validation
+
+### What we use: stratified 80/20 split
+```python
+train_df, val_df = train_test_split(df, test_size=0.2, stratify=df["label"], random_state=SEED)
+```
+- Train: **2 880 images** across 9 classes
+- Val: **720 images** across 9 classes
+- Stratified: each class maintains its original proportion (Ground/Rock still ~6–7% of val)
+
+### Why not K-Fold?
+
+**K-Fold Cross-Validation** trains $k$ models on different train/val splits and averages the results. The advantages are:
+- Lower variance in metric estimate (5-fold: uses 100% of data in training, each sample validated once)
+- More reliable model selection for hyperparameter search
+- Best practice when the dataset is small
+
+**Why we chose 80/20 instead:**
+
+| Consideration                        | 80/20                   | 5-Fold CV                          |
+| ------------------------------------ | ----------------------- | ---------------------------------- |
+| Training runs per experiment         | 1                       | 5                                  |
+| Total training time (11 experiments) | ~11 min                 | ~55 min                            |
+| Within 1-hour Colab budget           | ✅                       | ❌                                  |
+| Val metric stability                 | Lower (720 samples)     | Higher (4× more val data per fold) |
+| Implementation complexity            | Simple                  | Requires fold loop + avg           |
+| Suitable for hyperparameter search   | For small search spaces | For large grid searches            |
+
+**Budget calculation:**
+- 11 main experiments × ~80s each = ~15 min
+- 5-fold CV × 11 experiments = 55 × ~80s = **73 min** — exceeds the 1-hour Colab budget
+- With gray experiments (14 total) this rises to ~98 min
+
+### Is our val estimate reliable?
+
+**Partially.** With 720 val samples and 9 classes ≈ 80 per class:
+- 1 misclassified image = ±1.2% change in per-class F1
+- ±2 misclassifications on Rock (53 samples) = ±3.8% F1
+- This explains the "sawtooth" noise in val_f1 training curves
+
+**Risk of a lucky split:** with a single split, we could be "lucky" or "unlucky" depending on which images land in val. Macro-F1 of 0.21 ± 0.02 is a reasonable confidence interval (1 misclassification per class).
+
+**Mitigation (what we do):**
+1. `stratify=labels` ensures all 9 classes are proportionally represented
+2. Fixed `random_state=SEED` ensures reproducibility — same split every run
+3. We compare experiments using the same fixed val split → relative ranking is valid even if absolute value has some noise
+
+**For a real production setting:** K-Fold is strongly preferred. For this assignment with a hard time budget, stratified 80/20 is the correct trade-off.
+
+---
+
+## 9. Can We Improve Further?
 
 ### Best current model: A_vanilla (val_F1=0.2104)
 
@@ -383,7 +486,7 @@ FC(12288→512) → ReLU → FC(512→256) → ReLU → FC(256→128) → ReLU �
 
 ---
 
-## 9. Summary Table (for notebook Cell 46)
+## 10. Summary Table (for notebook Cell 46)
 
 | Metric                 | Value                                                              |
 | ---------------------- | ------------------------------------------------------------------ |
@@ -408,7 +511,7 @@ FC(12288→512) → ReLU → FC(512→256) → ReLU → FC(256→128) → ReLU �
 
 ---
 
-## 10. TODOs — What To Do Next
+## 11. TODOs — What To Do Next
 
 ### Notebook
 - [ ] **Fill in EDA Finding cells** — cells 9, 12, 15, 18, 21, 24, 27 — write observations from the saved plots. Real numbers now available in the JSON and in Section 3 above.
@@ -432,7 +535,7 @@ FC(12288→512) → ReLU → FC(512→256) → ReLU → FC(256→128) → ReLU �
 
 ---
 
-## 11. Interesting Things to Mention
+## 12. Interesting Things to Mention
 
 - **A_vanilla won** — most unexpected result. Simpler model beats 6 more sophisticated ones. Key message: over-regularisation on small datasets is as harmful as under-regularisation. Always test the simplest baseline first.
 - **Rock: F1 = 0.000** — the model never correctly identifies an entire class. Shows why macro-F1 matters: accuracy of 25% hides a completely blind class. One of 9 classes = invisible.
@@ -444,7 +547,7 @@ FC(12288→512) → ReLU → FC(512→256) → ReLU → FC(256→128) → ReLU �
 
 ---
 
-## 12. Code Quality Notes
+## 13. Code Quality Notes
 
 | Item                      | Status | Note                                                                      |
 | ------------------------- | ------ | ------------------------------------------------------------------------- |

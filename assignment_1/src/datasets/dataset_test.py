@@ -10,6 +10,8 @@ from src.datasets.dataset import (
     compute_class_weights,
     get_augment_transforms,
     get_base_transforms,
+    get_gray_transforms,
+    get_gray_aug_transforms,
     get_train_val_loaders,
 )
 
@@ -210,6 +212,42 @@ def test_stratified_class_ratio():
     print(f"[PASS] stratified split: all 9 classes within 2% proportion in train and val")
 
 
+def test_gray_transforms():
+    """get_gray_transforms must output (1, H, W) tensors, values roughly in [-3, 3]."""
+    import torch
+    ds = PokemonDataset(TRAIN_DIR, get_gray_transforms(_IMG_SIZE), csv_path=CSV_PATH)
+    tensor, label = ds[0]
+    assert tensor.shape == (1, _IMG_SIZE, _IMG_SIZE), \
+        f"Expected (1, {_IMG_SIZE}, {_IMG_SIZE}), got {tensor.shape}"
+    assert tensor.dtype == torch.float32
+    assert tensor.min() > -4.0 and tensor.max() < 4.0, \
+        f"Gray values out of range: min={tensor.min():.2f}, max={tensor.max():.2f}"
+    print(f"[PASS] gray transform: shape={tensor.shape}, range=[{tensor.min():.2f}, {tensor.max():.2f}]")
+
+
+def test_gray_equalize_transforms():
+    """get_gray_transforms(equalize=True) must output same shape as without equalization."""
+    import torch
+    ds_eq = PokemonDataset(TRAIN_DIR, get_gray_transforms(_IMG_SIZE, equalize=True), csv_path=CSV_PATH)
+    tensor, _ = ds_eq[0]
+    assert tensor.shape == (1, _IMG_SIZE, _IMG_SIZE), \
+        f"Expected (1, {_IMG_SIZE}, {_IMG_SIZE}) with equalize, got {tensor.shape}"
+    print(f"[PASS] gray+equalize transform: shape={tensor.shape}, range=[{tensor.min():.2f}, {tensor.max():.2f}]")
+
+
+def test_gray_loaders():
+    """get_train_val_loaders with grayscale=True must yield (B, 1, H, W) batches."""
+    import torch
+    train_loader, val_loader = get_train_val_loaders(
+        CSV_PATH, TRAIN_DIR, _IMG_SIZE, _BATCH_SIZE,
+        augment=False, use_sampler=False, grayscale=True,
+    )
+    images, labels = next(iter(train_loader))
+    assert images.shape[1] == 1, f"Expected 1 channel (gray), got {images.shape[1]}"
+    assert images.shape[2:] == (_IMG_SIZE, _IMG_SIZE), f"Wrong spatial dims: {images.shape[2:]}"
+    print(f"[PASS] gray loader batch: {tuple(images.shape)} (1 channel as expected)")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("dataset_test.py — running all tests")
@@ -223,6 +261,9 @@ if __name__ == "__main__":
     test_dataloader_batch_shapes()
     test_no_train_val_overlap()
     test_stratified_class_ratio()
+    test_gray_transforms()
+    test_gray_equalize_transforms()
+    test_gray_loaders()
     # stratified split iterates all loaders — slowest, keep last
     test_stratified_split()
     print("=" * 60)

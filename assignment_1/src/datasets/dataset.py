@@ -7,7 +7,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision import transforms
@@ -21,10 +21,14 @@ from ..config import CLASSES, NUM_CLASSES, SEED
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STD  = [0.229, 0.224, 0.225]
 
+# Grayscale normalization: mean/std for a single channel (computed empirically;
+# 0.5/0.5 is a safe neutral default when dataset-specific stats aren't available)
+_GRAY_MEAN = [0.5]
+_GRAY_STD  = [0.5]
+
 
 def get_base_transforms(size: int) -> transforms.Compose:
-    """Returns a pipeline that resizes images, converts them to tensors, and normalizes them using the constants above. 
-    Used for validation, testing, and MLP training."""
+    """RGB pipeline: resize, ToTensor (scales to [0,1]), normalize with ImageNet constants."""
     return transforms.Compose([
         transforms.Resize((size, size)),
         transforms.ToTensor(),
@@ -33,8 +37,7 @@ def get_base_transforms(size: int) -> transforms.Compose:
 
 
 def get_augment_transforms(size: int) -> transforms.Compose:
-    """Adds random horizontal flips, color jitter, and small rotations for data augmentation. 
-    Used for training CNNs or transfer learning."""
+    """RGB pipeline with augmentation: flip, color jitter, small rotation. For CNN/Transfer training."""
     return transforms.Compose([
         transforms.Resize((size, size)),
         transforms.RandomHorizontalFlip(),
@@ -43,6 +46,39 @@ def get_augment_transforms(size: int) -> transforms.Compose:
         transforms.ToTensor(),
         transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD),
     ])
+
+
+def get_gray_transforms(size: int, equalize: bool = False) -> transforms.Compose:
+    """
+    Grayscale pipeline: resize, optional histogram equalization, convert to 1-channel,
+    ToTensor, normalize. Outputs (1, H, W) tensors — input_dim = size*size*1.
+    equalize=True applies PIL histogram equalization to stretch contrast before grayscaling.
+    """
+    steps = [transforms.Resize((size, size))]
+    if equalize:
+        # apply histogram equalization on the RGB image before converting to gray
+        steps.append(transforms.Lambda(lambda img: ImageOps.equalize(img)))
+    steps += [
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=_GRAY_MEAN, std=_GRAY_STD),
+    ]
+    return transforms.Compose(steps)
+
+
+def get_gray_aug_transforms(size: int, equalize: bool = False) -> transforms.Compose:
+    """Grayscale pipeline with augmentation. No color jitter (no color info in gray)."""
+    steps = [transforms.Resize((size, size))]
+    if equalize:
+        steps.append(transforms.Lambda(lambda img: ImageOps.equalize(img)))
+    steps += [
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(15),
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=_GRAY_MEAN, std=_GRAY_STD),
+    ]
+    return transforms.Compose(steps)
 
 
 # ── dataset ───────────────────────────────────────────────────────────────────
@@ -123,12 +159,16 @@ def get_train_val_loaders(
     use_sampler: bool = False,
     num_workers: int = 2,
     df_override: Optional[pd.DataFrame] = None,
+    grayscale: bool = False,
+    equalize: bool = False,
 ) -> tuple[DataLoader, DataLoader]:
     """
     Stratified 80/20 split -> two DataLoaders.
-    augment=True uses get_augment_transforms for the train loader (val always uses base).
-    use_sampler=True adds WeightedRandomSampler to the train loader.
-    df_override: pass a pre-filtered DataFrame (e.g. FAST_RUN subset) instead of reading csv_path.
+    augment=True: training loader uses augmentation transforms.
+    use_sampler=True: adds WeightedRandomSampler to training loader.
+    grayscale=True: outputs (1, H, W) tensors instead of (3, H, W). input_dim = size*size.
+    equalize=True: applies histogram equalization before grayscale (only used when grayscale=True).
+    df_override: pass a pre-filtered DataFrame instead of reading csv_path (used for FAST_RUN).
     """
     df = df_override if df_override is not None else pd.read_csv(csv_path)
     label_to_idx = {cls: i for i, cls in enumerate(CLASSES)}
@@ -142,20 +182,24 @@ def get_train_val_loaders(
         stratify=all_labels,
     )
 
-    train_transform = get_augment_transforms(img_size) if augment else get_base_transforms(img_size)
-    val_transform   = get_base_transforms(img_size)
+    # pick the right transform family (RGB vs gray, base vs augmented)
+    if grayscale:
+        train_transform = get_gray_aug_transforms(img_size, equalize=equalize) if augment else get_gray_transforms(img_size, equalize=equalize)
+        val_transform   = get_gray_transforms(img_size, equalize=equalize)
+    else:
+        train_transform = get_augment_transforms(img_size) if augment else get_base_transforms(img_size)
+        val_transform   = get_base_transforms(img_size)
 
     # pass df directly so PokemonDataset uses the (possibly subsampled) rows, not the full CSV
     train_ds = PokemonDataset(img_dir, train_transform, df=df, indices=train_idx)
     val_ds   = PokemonDataset(img_dir, val_transform,   df=df, indices=val_idx)
 
     # build sampler only for train loader when requested
-    sampler      = None
+    sampler       = None
     train_shuffle = True
     if use_sampler:
         train_labels  = [all_labels[i] for i in train_idx]
         class_weights = compute_class_weights(train_labels)
-        # each sample gets the weight of its class
         sample_weights = [class_weights[lbl].item() for lbl in train_labels]
         sampler       = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
         train_shuffle = False  # sampler and shuffle are mutually exclusive in DataLoader
