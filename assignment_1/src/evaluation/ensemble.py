@@ -20,6 +20,7 @@ def soft_ensemble(
     device: torch.device,
     classes: list = CLASSES,
     weights: Optional[list] = None,
+    inference_mode: bool = False,
 ) -> dict:
     """
     Load N checkpoints, average their softmax outputs, return metrics.
@@ -32,13 +33,17 @@ def soft_ensemble(
         None -> uniform average (equal weight per model).
         e.g. [0.6, 0.4] to weight the first model more heavily.
 
+    inference_mode: set True when val_loader is a test loader (no integer labels).
+        Skips label collection, F1/acc computation, and per-model solo passes.
+        Returns val_macro_f1=None, val_acc=None, per_model_f1={} in this case.
+
     Returns dict:
         {
-          "val_macro_f1": float,
-          "val_acc":      float,
-          "per_model_f1": {checkpoint_stem: float},  # individual F1 for comparison
+          "val_macro_f1": float | None,
+          "val_acc":      float | None,
+          "per_model_f1": {checkpoint_stem: float},  # empty in inference_mode
           "preds":        list[int],
-          "labels":       list[int],
+          "labels":       list[int],                 # empty in inference_mode
         }
     """
     if not checkpoint_configs:
@@ -76,7 +81,19 @@ def soft_ensemble(
             for model, w in zip(loaded_models, weights):
                 avg += w * F.softmax(model(imgs), dim=1)
             all_preds.extend(avg.argmax(dim=1).cpu().tolist())
-            all_labels.extend(labels.tolist())
+            # labels is a tensor on val sets, but a tuple of strings on test set
+            if not inference_mode:
+                all_labels.extend(labels.tolist())
+
+    if inference_mode:
+        # test loader — no ground-truth labels, skip metrics and per-model pass
+        return {
+            "val_macro_f1": None,
+            "val_acc":      None,
+            "per_model_f1": {},
+            "preds":        all_preds,
+            "labels":       [],
+        }
 
     ens_f1  = f1_score(all_labels, all_preds, average="macro", zero_division=0)
     ens_acc = accuracy_score(all_labels, all_preds)
