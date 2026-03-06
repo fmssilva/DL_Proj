@@ -153,6 +153,35 @@ class WiderMLP(nn.Module):
         return self.net(x.view(x.size(0), -1))
 
 
+class DeepMLP(nn.Module):
+    """
+    4-layer funnel: input -> 512 -> 256 -> 128 -> 64 -> 9, with BN+Dropout.
+    One extra compression step vs MLP — tests whether a tighter final bottleneck
+    helps or hurts. Fewer params than MLP in the last layers, more layers of
+    abstraction before the classifier head.
+    in_channels=1 for grayscale input.
+    """
+
+    def __init__(self, img_size: int = 64, dropout: float = 0.3, in_channels: int = 3):
+        super().__init__()
+        input_dim = img_size * img_size * in_channels
+
+        def _block(in_f: int, out_f: int) -> list:
+            return [nn.Linear(in_f, out_f), nn.BatchNorm1d(out_f), nn.ReLU(), nn.Dropout(dropout)]
+
+        self.net = nn.Sequential(
+            *_block(input_dim, 512),
+            *_block(512, 256),
+            *_block(256, 128),
+            *_block(128, 64),
+            nn.Linear(64, NUM_CLASSES),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # flatten (B, C, H, W) -> (B, C*H*W) then through 4-layer funnel
+        return self.net(x.view(x.size(0), -1))
+
+
 class BottleneckMLP(nn.Module):
     """
     Expand-then-compress: input -> 512 -> 1024 -> 256 -> 128 -> 9, with BN+Dropout.
