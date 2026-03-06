@@ -32,7 +32,8 @@ def plot_leaderboard(
     f1s   = [v["val_macro_f1"] for _, v in items]
     times = [v["train_time_s"] for _, v in items]
 
-    fig, axes = plt.subplots(1, 2, figsize=(max(10, len(names) * 0.7 + 2), 5))
+    # two plots stacked vertically so many experiment names don't get cramped
+    fig, axes = plt.subplots(2, 1, figsize=(max(10, len(names) * 0.7 + 2), 10))
 
     # F1 bar — best bar in orange, rest in steelblue
     best_f1  = max(f1s)
@@ -44,7 +45,8 @@ def plot_leaderboard(
     axes[0].set_title("Experiment Leaderboard — Val Macro F1")
     axes[0].set_ylim(0, best_f1 * 1.35)
     axes[0].legend(fontsize=8)
-    axes[0].tick_params(axis="x", rotation=45)
+    axes[0].set_xticks(range(len(names)))
+    axes[0].set_xticklabels(names, rotation=45, ha="right")
     y_range0 = best_f1 * 1.35
     for bar, v in zip(bars0, f1s):
         axes[0].text(
@@ -57,7 +59,8 @@ def plot_leaderboard(
     bars1 = axes[1].bar(names, times, color="slategray")
     axes[1].set_ylabel("Training time (s)")
     axes[1].set_title("Training Time per Experiment")
-    axes[1].tick_params(axis="x", rotation=45)
+    axes[1].set_xticks(range(len(names)))
+    axes[1].set_xticklabels(names, rotation=45, ha="right")
     max_t = max(times) if max(times) > 0 else 1.0
     axes[1].set_ylim(0, max_t * 1.35)
     for bar, v in zip(bars1, times):
@@ -109,6 +112,7 @@ def plot_per_class_f1_heatmap(
     out_path: Path,
     classes: list = CLASSES,
     highlight_best: bool = True,
+    loader_fn_registry: dict = None,
 ) -> plt.Figure:
     """
     For every .pth in checkpoint_dir that appears in model_registry, build a model,
@@ -120,7 +124,12 @@ def plot_per_class_f1_heatmap(
         Stems NOT in the registry are skipped silently (e.g. ensemble checkpoints).
 
     loader_fn: callable() -> (train_loader, val_loader)
-        Called fresh for each model so there is no data state contamination.
+        Default loader for all stems. Called fresh per model.
+
+    loader_fn_registry: optional {stem: callable() -> (train_loader, val_loader)}
+        Per-stem loader overrides. Use this for stems that need a different loader
+        (e.g. grayscale experiments that need build_loaders(grayscale=True)).
+        Stems not listed here fall back to loader_fn.
 
     highlight_best: if True, add a column "macro_avg" and sort rows by it descending.
 
@@ -128,6 +137,7 @@ def plot_per_class_f1_heatmap(
     which experiments are above/below the class average, not just the raw score.
     """
     ckpt_dir = Path(checkpoint_dir)
+    _loader_overrides = loader_fn_registry or {}
 
     rows   = {}   # exp_name -> {class: f1}
     for ckpt_path in sorted(ckpt_dir.glob("*.pth")):
@@ -138,7 +148,9 @@ def plot_per_class_f1_heatmap(
         model.load_state_dict(
             torch.load(ckpt_path, map_location=device, weights_only=True)
         )
-        _, val_loader = loader_fn()
+        # use per-stem loader if provided, otherwise fall back to the default loader_fn
+        stem_loader_fn = _loader_overrides.get(stem, loader_fn)
+        _, val_loader = stem_loader_fn()
         rows[stem] = compute_per_class_f1(model, val_loader, device, classes)
 
     if not rows:
