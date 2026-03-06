@@ -107,23 +107,95 @@ def load_results(results_path: Path) -> dict:
         return json.load(f)
 
 
-def download_outputs(task_out_dir: Path, root: str, in_colab: bool) -> None:
+def save_to_drive(
+    task_out_dir: Path,
+    task_name: str,
+    root: str,
+    in_colab: bool,
+    drive_dir: str = "/content/drive/MyDrive/DL_Proj_Outputs",
+) -> None:
     """
-    Zip task_out_dir and trigger a browser download (Colab only).
-    Prints the local path when not on Colab — safe to call anywhere.
+    Zip task_out_dir and copy the zip to Google Drive (Colab only).
+    Zip is named '{task_name}_outputs.zip' — e.g. 'task1_outputs.zip'.
+    Mounts Drive if not already mounted. On local runs just prints the path.
     """
     if not in_colab:
-        print(f"Outputs at: {Path(task_out_dir).resolve()}")
+        print(f"[save_to_drive] local run — outputs at: {Path(task_out_dir).resolve()}")
         return
+
     import shutil
-    from google.colab import files  # type: ignore — only available on Colab
-    zip_path = Path(root) / f"{Path(task_out_dir).name}_outputs"
+    from google.colab import drive as _drive  # type: ignore
+
+    # mount Drive if the mount point doesn't have content yet
+    drive_root = Path("/content/drive")
+    if not (drive_root / "MyDrive").exists():
+        _drive.mount(str(drive_root))
+
+    # create the destination folder if needed
+    dest_dir = Path(drive_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    # build the zip in /tmp to avoid polluting the Colab workspace
+    zip_stem = f"{task_name}_outputs"
+    zip_path = Path("/tmp") / zip_stem
     shutil.make_archive(
         str(zip_path), "zip",
         root_dir=str(Path(task_out_dir).parent),
         base_dir=Path(task_out_dir).name,
     )
-    files.download(str(zip_path) + ".zip")
+    final_zip = zip_path.with_suffix(".zip")
+
+    # copy to Drive (overwrites if already exists — we always want the latest)
+    dest_path = dest_dir / final_zip.name
+    shutil.copy2(str(final_zip), str(dest_path))
+    final_zip.unlink(missing_ok=True)   # clean up tmp zip
+
+    print(f"[save_to_drive] saved -> {dest_path}")
+
+
+def restore_from_drive(
+    task_out_dir: Path,
+    task_name: str,
+    root: str,
+    in_colab: bool,
+    drive_dir: str = "/content/drive/MyDrive/DL_Proj_Outputs",
+) -> bool:
+    """
+    Download and extract '{task_name}_outputs.zip' from Google Drive (Colab only).
+    Extracts into task_out_dir's parent so the folder structure is restored intact.
+    Returns True if a zip was found and extracted, False otherwise.
+    On local runs always returns False — safe to call anywhere.
+    """
+    if not in_colab:
+        print(f"[restore_from_drive] local run — skipping Drive restore.")
+        return False
+
+    import shutil
+    from google.colab import drive as _drive  # type: ignore
+
+    drive_root = Path("/content/drive")
+    if not (drive_root / "MyDrive").exists():
+        _drive.mount(str(drive_root))
+
+    zip_name = f"{task_name}_outputs.zip"
+    src_path = Path(drive_dir) / zip_name
+
+    if not src_path.exists():
+        print(f"[restore_from_drive] no '{zip_name}' found in Drive ({drive_dir}) — starting fresh.")
+        return False
+
+    # copy to /tmp first (faster than extracting directly from mounted Drive)
+    tmp_zip = Path("/tmp") / zip_name
+    shutil.copy2(str(src_path), str(tmp_zip))
+
+    import zipfile
+    extract_target = Path(task_out_dir).parent
+    with zipfile.ZipFile(str(tmp_zip), "r") as zf:
+        zf.extractall(str(extract_target))
+    tmp_zip.unlink(missing_ok=True)
+
+    print(f"[restore_from_drive] restored '{zip_name}' -> {extract_target}")
+    return True
 
 
 # ── internal helper ───────────────────────────────────────────────────────────
@@ -223,8 +295,10 @@ if __name__ == "__main__":
     assert missing == {}
     print("[PASS] load_results returns empty dict for missing file")
 
-    # --- test download_outputs non-Colab path ---
-    download_outputs(tmp, str(tmp), in_colab=False)
-    print("[PASS] download_outputs prints path when not on Colab")
+    # --- test save_to_drive / restore_from_drive non-Colab path ---
+    save_to_drive(tmp, "task1", str(tmp), in_colab=False)
+    result = restore_from_drive(tmp, "task1", str(tmp), in_colab=False)
+    assert result is False
+    print("[PASS] save_to_drive / restore_from_drive are safe no-ops when not on Colab")
 
     print("\nAll persistence.py smoke tests passed.")

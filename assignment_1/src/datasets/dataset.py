@@ -17,6 +17,13 @@ from ..config import CLASSES, NUM_CLASSES, SEED
 
 # ── transforms ────────────────────────────────────────────────────────────────
 
+class _EqualizeTransform:
+    """Top-level callable for PIL histogram equalization.
+    Must be a named class (not a lambda) so DataLoader workers can pickle it.
+    """
+    def __call__(self, img):
+        return ImageOps.equalize(img)
+
 # ImageNet mean/std — good default even for non-ImageNet data; revisit if EDA shows big drift
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STD  = [0.229, 0.224, 0.225]
@@ -57,7 +64,7 @@ def get_gray_transforms(size: int, equalize: bool = False) -> transforms.Compose
     steps = [transforms.Resize((size, size))]
     if equalize:
         # apply histogram equalization on the RGB image before converting to gray
-        steps.append(transforms.Lambda(lambda img: ImageOps.equalize(img)))
+        steps.append(_EqualizeTransform())
     steps += [
         transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),
@@ -70,7 +77,7 @@ def get_gray_aug_transforms(size: int, equalize: bool = False) -> transforms.Com
     """Grayscale pipeline with augmentation. No color jitter (no color info in gray)."""
     steps = [transforms.Resize((size, size))]
     if equalize:
-        steps.append(transforms.Lambda(lambda img: ImageOps.equalize(img)))
+        steps.append(_EqualizeTransform())
     steps += [
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(15),
