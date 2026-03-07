@@ -134,7 +134,7 @@ def print_ensemble_report(result: dict, ensemble_label: str = "Ensemble") -> Non
     print(f"  Delta vs best solo  : {delta:+.4f}")
 
 
-# ── local smoke test ──────────────────────────────────────────────────────────
+# ── local test ──────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import sys, tempfile

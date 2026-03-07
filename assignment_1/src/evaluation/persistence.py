@@ -4,15 +4,49 @@
 
 import json
 from pathlib import Path
+from typing import TypedDict
 
 from sklearn.metrics import f1_score, classification_report
 
 from ..config import CLASSES
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Experiment result schema
+# ══════════════════════════════════════════════════════════════════════════════
+
+class ExperimentEntry(TypedDict):
+    """
+    One row in results_tracker — produced by run_experiment (solo) or the ensemble cell.
+
+    Fields set by run_experiment (solo models):
+        val_macro_f1 : best val macro-F1 from the saved checkpoint
+        val_acc      : val accuracy at the same checkpoint
+        val_loss     : val loss at the same checkpoint
+        total_epochs : how many epochs actually ran (may be < EPOCHS if early-stopped)
+        train_time_s : wall-clock seconds for the full training loop
+        history      : {"train_loss": [...], "val_loss": [...],
+                        "train_f1": [...], "val_f1": [...]}  -- one float per epoch
+
+    Extra field set only by ensemble cells:
+        child_models : list of experiment names that were averaged (e.g. ["C_ls01_drop03", "E_sampler"])
+                       absent on solo entries, val_loss=nan and total_epochs=0 for ensembles
+    """
+    val_macro_f1: float
+    val_acc:      float
+    val_loss:     float
+    total_epochs: int
+    train_time_s: float
+    history:      dict   # keys: train_loss, val_loss, train_f1, val_f1 — each a list of floats
+
+
+# shorthand used in function signatures throughout this file and analysis.py
+ResultsTracker = dict[str, ExperimentEntry]
+
+
 # ── private helper ─────────────────────────────────────────────────────────────
 
-def _serialise_entry(entry: dict) -> dict:
+def _serialise_entry(entry: ExperimentEntry) -> dict:
     # prepare one results_tracker entry for JSON: round floats, nan -> null
     import math
     out = {}
@@ -33,7 +67,7 @@ def _serialise_entry(entry: dict) -> dict:
 # 1. RESULTS JSON  (read / write experiment results to disk)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def save_experiment_result(name: str, entry: dict, results_path: Path) -> None:
+def save_experiment_result(name: str, entry: ExperimentEntry, results_path: Path) -> None:
     # upsert one experiment into the results JSON; never overwrites other experiments
     results_path = Path(results_path)
     results_path.parent.mkdir(parents=True, exist_ok=True)
@@ -52,7 +86,7 @@ def save_experiment_result(name: str, entry: dict, results_path: Path) -> None:
 
 
 def save_all_results(
-    results_tracker: dict,
+    results_tracker: ResultsTracker,
     best_name: str,
     val_metrics: dict,
     all_labels: list,
@@ -112,7 +146,7 @@ def load_results(results_path: Path) -> dict:
         return json.load(f)
 
 
-def restore_tracker(results_path: Path, tracker: dict) -> None:
+def restore_tracker(results_path: Path, tracker: ResultsTracker) -> None:
     """
     Load experiments from a results JSON into tracker (in-place).
     Supports both the current 'experiments' key and the old 'all_experiments' key.

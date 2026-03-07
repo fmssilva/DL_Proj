@@ -89,7 +89,7 @@ def check_data_integrity(img_dir: Path, df: Optional[pd.DataFrame] = None) -> tu
     return valid, invalid
 
 
-# ── local runner ──────────────────────────────────────────────────────────────
+###########   LOCAL TESTS     ##################
 
 if __name__ == "__main__":
     CSV_PATH  = Path("data/train_labels.csv")

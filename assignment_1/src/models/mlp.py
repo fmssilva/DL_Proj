@@ -13,6 +13,11 @@ class MLP(nn.Module):
     Standard 3-layer funnel: input -> 512 -> 256 -> 128 -> 9.
     Each hidden layer: Linear -> BatchNorm1d -> ReLU -> Dropout(p).
     in_channels=1 for grayscale input (input_dim = img_size*img_size).
+
+    [12288] -> [512] -> [256] -> [128] -> [9]
+                ReLU      ReLU     ReLU   (logits)
+                BN        BN       BN
+                D(p)      D(p)     D(p)
     """
 
     def __init__(self, img_size: int = 64, dropout: float = 0.4, in_channels: int = 3):
@@ -49,6 +54,9 @@ class VanillaMLP(nn.Module):
     Winning architecture from the first Colab run — simpler often beats
     over-regularised models on small datasets.
     in_channels=1 for grayscale input.
+
+    [12288] -> [128] -> [64] -> [9]
+                ReLU     ReLU  (logits)
     """
 
     def __init__(self, img_size: int = 64, in_channels: int = 3):
@@ -73,6 +81,9 @@ class VanillaMLP_v2(nn.Module):
     One more unit in first layer vs VanillaMLP — tests whether 256 vs 128 capacity
     is worth the extra params (still ~3x fewer than MLP).
     in_channels=1 for grayscale input.
+
+    [12288] -> [256] -> [128] -> [9]
+                ReLU     ReLU   (logits)
     """
 
     def __init__(self, img_size: int = 64, in_channels: int = 3):
@@ -97,6 +108,11 @@ class NarrowMLP(nn.Module):
     Hypothesis: fewer params per layer forces compact representations.
     Result: worst in full run (0.1343) — never converged in 30 epochs.
     in_channels=1 for grayscale input.
+
+    [12288] -> [256] -> [128] -> [64] -> [32] -> [9]
+                ReLU     ReLU     ReLU    ReLU  (logits)
+                BN       BN       BN      BN
+                D(p)     D(p)     D(p)    D(p)
     """
 
     def __init__(self, img_size: int = 64, dropout: float = 0.4, in_channels: int = 3):
@@ -124,6 +140,11 @@ class WiderMLP(nn.Module):
     Same BN+Dropout structure as MLP — tests whether more capacity in the first
     projection helps learn colour-combination features.
     in_channels=1 for grayscale input.
+
+    [12288] -> [1024] -> [256] -> [128] -> [9]
+                ReLU      ReLU     ReLU   (logits)
+                BN        BN       BN
+                D(p)      D(p)     D(p)
     """
 
     def __init__(self, img_size: int = 64, dropout: float = 0.3, in_channels: int = 3):
@@ -160,6 +181,11 @@ class DeepMLP(nn.Module):
     helps or hurts. Fewer params than MLP in the last layers, more layers of
     abstraction before the classifier head.
     in_channels=1 for grayscale input.
+
+    [12288] -> [512] -> [256] -> [128] -> [64] -> [9]
+                ReLU     ReLU     ReLU    ReLU   (logits)
+                BN       BN       BN      BN
+                D(p)     D(p)     D(p)    D(p)
     """
 
     def __init__(self, img_size: int = 64, dropout: float = 0.3, in_channels: int = 3):
@@ -188,6 +214,12 @@ class BottleneckMLP(nn.Module):
     Wide middle layer captures more feature combinations before compressing.
     2nd best in full run (0.2072) — close to VanillaMLP winner (0.2104).
     in_channels=1 for grayscale input.
+
+    [12288] -> [512] -> [1024] -> [256] -> [128] -> [9]
+                ReLU     ReLU     ReLU     ReLU   (logits)
+                BN       BN       BN       BN
+                D(p)     D(p)     D(p)     D(p)
+                        (expand)  (compress)
     """
 
     def __init__(self, img_size: int = 64, dropout: float = 0.4, in_channels: int = 3):

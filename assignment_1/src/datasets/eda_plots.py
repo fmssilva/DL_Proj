@@ -294,6 +294,11 @@ def plot_pca_tsne(
     _save(fig, _resolve(out_path, "plot_pca_tsne"))
     return fig
 
+
+
+
+###################  LOCAL TEST  ###################
+
 if __name__ == "__main__":
     import pandas as _pd
 

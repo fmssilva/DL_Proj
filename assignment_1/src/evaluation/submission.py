@@ -100,7 +100,7 @@ def validate_submission(path: Path, expected_rows: int = 900) -> None:
     print(f"Submission valid: {len(df)} rows, all class names correct.")
 
 
-# ── sanity check ──────────────────────────────────────────────────────────────
+# ── local tests ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import sys, tempfile

@@ -1,6 +1,5 @@
 # Post-training analysis: leaderboard bar chart and per-class F1 heatmap.
-# Used in Part 3 of each task notebook. Import these and call with your
-# results_tracker dict and a val_loader — no training happens here.
+# Import these and call with results_tracker dict and a val_loader — no training happens here.
 
 from pathlib import Path
 from typing import Callable
@@ -14,17 +13,17 @@ from sklearn.metrics import f1_score, classification_report
 from torch.utils.data import DataLoader
 
 from ..config import CLASSES
+from .persistence import ResultsTracker
 
 
 def plot_leaderboard(
-    results_tracker: dict,
+    results_tracker: ResultsTracker,
     out_path: Path,
     baseline_f1: float = 0.111,
 ) -> plt.Figure:
     """
     Bar chart of val_macro_f1 per experiment, sorted descending.
     Best bar is highlighted orange; a dashed red line marks the random baseline.
-    results_tracker: {exp_name: {"val_macro_f1": float, "train_time_s": float, ...}}
     """
     # sort by f1 descending for the chart
     items = sorted(results_tracker.items(), key=lambda x: x[1]["val_macro_f1"], reverse=True)
@@ -196,7 +195,12 @@ def print_classification_report(
     device: torch.device,
     classes: list = CLASSES,
 ) -> None:
-    """Collect val predictions and print sklearn classification report."""
+    """
+    Collect val predictions and display the classification report.
+    In a Jupyter notebook: shows a styled pandas DataFrame via display().
+    In a terminal: plain print() fallback.
+    Returns (all_labels, all_preds) for downstream use (confusion matrix etc).
+    """
     model.eval()
     all_preds, all_labels = [], []
     with torch.no_grad():
@@ -205,13 +209,53 @@ def print_classification_report(
             preds = model(imgs).argmax(dim=1).cpu().tolist()
             all_preds.extend(preds)
             all_labels.extend(labels.tolist())
-    print(classification_report(
-        all_labels, all_preds,
+
+    _show_report(all_labels, all_preds, classes)
+    return all_labels, all_preds
+
+
+
+def _show_report(y_true: list, y_pred: list, classes: list) -> None:
+    """Display the report as a styled DataFrame in Jupyter, or plain text in terminal."""
+    try:
+        from IPython.display import display
+        df = _report_to_df(y_true, y_pred, classes)
+        # colour the f1-score column: low = red tint, high = green tint
+        styled = df.style.background_gradient(subset=["f1-score"], cmap="RdYlGn", vmin=0, vmax=1)
+        display(styled)
+    except Exception:
+        # not in Jupyter or IPython not available — plain text is fine
+        print(classification_report(
+            y_true, y_pred,
+            target_names=classes,
+            labels=list(range(len(classes))),
+            zero_division=0,
+        ))
+
+
+def _report_to_df(y_true: list, y_pred: list, classes: list):
+    """Convert sklearn classification_report dict to a display-ready DataFrame."""
+    import pandas as pd
+    report = classification_report(
+        y_true, y_pred,
         target_names=classes,
         labels=list(range(len(classes))),
         zero_division=0,
-    ))
-    return all_labels, all_preds
+        output_dict=True,
+    )
+    # per-class rows first, then the summary rows
+    rows = {cls: report[cls] for cls in classes if cls in report}
+    for key in ("accuracy", "macro avg", "weighted avg"):
+        if key == "accuracy":
+            # accuracy comes back as a scalar — normalise it to match the other rows
+            rows[key] = {"precision": "", "recall": "", "f1-score": round(report[key], 2), "support": report.get("macro avg", {}).get("support", "")}
+        elif key in report:
+            rows[key] = report[key]
+    df = pd.DataFrame(rows).T[["precision", "recall", "f1-score", "support"]]
+    # round floats, leave support as int-like and empty strings alone
+    for col in ("precision", "recall", "f1-score"):
+        df[col] = df[col].apply(lambda v: round(v, 2) if isinstance(v, float) else v)
+    return df
 
 
 # ── internal helpers ──────────────────────────────────────────────────────────
@@ -221,7 +265,7 @@ def _save(fig: plt.Figure, out_path: Path) -> None:
     fig.savefig(out_path, bbox_inches="tight", dpi=120)
 
 
-# ── local smoke test ──────────────────────────────────────────────────────────
+# ── local test ──────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import sys, tempfile, os

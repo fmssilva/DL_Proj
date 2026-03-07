@@ -86,7 +86,7 @@ def plot_confusion_matrix(
     return fig
 
 
-# ── sanity checks ─────────────────────────────────────────────────────────────
+# ── local tests ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     from src.config import CLASSES, OUT_DIR

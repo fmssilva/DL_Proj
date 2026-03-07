@@ -262,32 +262,36 @@ _LS = label_smoothing, WD = weight_decay, CW = class weights_
 
 ### Per-class F1 breakdown (best solo: R_ls015_drop03)
 
-| Class      | F1        | Est. val samples | Why                                                          |
-| ---------- | --------- | ---------------- | ------------------------------------------------------------ |
-| 🔥 Fire     | **0.480** | ~76              | Most distinctive palette — warm orange unique across classes |
-| 💧 Water    | **0.358** | ~135             | Blue dominant + largest class helps statistics               |
-| ☠️ Poison   | **0.347** | ~93              | Purple tones fairly unique; LS helps prevent over-confidence |
-| 🌿 Grass    | 0.303     | ~60              | Green with enough variety; benefited from LS                 |
-| 😐 Normal   | 0.199     | ~121             | Large class = volume; diverse sprites                        |
-| 🐛 Bug      | 0.172     | ~75              | Confused with Grass (green) and Poison (purple bugs)         |
-| 🌍 Ground   | 0.088     | ~49              | Brown/grey overlaps Rock and Fighting; fewest samples        |
-| 🪨 Rock     | 0.117     | ~53              | **Improved from 0.000 → 0.117** thanks to label_smoothing    |
-| ⚔️ Fighting | 0.073     | ~58              | Humanoid — confused with Normal; worst class this run        |
+Actual classification report from `R_ls015_drop03` checkpoint (`val_loss=2.2520`, `val_acc=0.2569`, `macro_f1=0.2396`):
 
-_Note: Per-class F1 estimates from best solo C_ls01_drop03 (R has similar profile, exact numbers would be negligibly different)_
+| Class      | Precision | Recall | F1       | Support | Why                                                     |
+| ---------- | --------- | ------ | -------- | ------- | ------------------------------------------------------- |
+| 🔥 Fire     | 0.43      | 0.49   | **0.46** | 76      | Most distinctive palette — warm orange unique           |
+| ☠️ Poison   | 0.33      | 0.40   | **0.36** | 93      | Purple tones fairly unique; LS prevents over-confidence |
+| 💧 Water    | 0.49      | 0.25   | **0.33** | 135     | High precision but low recall — confused with Normal    |
+| 🌿 Grass    | 0.24      | 0.35   | 0.29     | 60      | Green palette; confused with Bug                        |
+| 😐 Normal   | 0.24      | 0.20   | 0.22     | 121     | Largest class but diverse humanoid sprites              |
+| 🐛 Bug      | 0.15      | 0.13   | 0.14     | 75      | Confused with Grass (green) and Poison (purple bugs)    |
+| ⚔️ Fighting | 0.12      | 0.14   | 0.13     | 58      | Humanoid — confused with Normal; hardest class          |
+| 🪨 Rock     | 0.11      | 0.17   | 0.13     | 53      | Grey/brown overlaps Ground and Fighting                 |
+| 🌍 Ground   | 0.11      | 0.10   | 0.11     | 49      | Brown/grey; fewest samples; worst class overall         |
+
+**Accuracy: 0.26 (720 val samples) · Macro avg F1: 0.24 · Weighted avg F1: 0.26**
+
+_These are the exact numbers from running the saved R_ls015_drop03 checkpoint on the validation split._
 
 ### Rock improvement — root cause analysis
-> First run (A_vanilla, no LS): Rock F1 = 0.000. This run (C, LS=0.1): Rock F1 = 0.117.
+> First run (A_vanilla, no LS): Rock F1 = 0.000. Best solo R (LS=0.15): Rock F1 = 0.13.
 
 **Why label_smoothing helped Rock:**
 - Without LS: model becomes overconfident → assigns probability ~1.0 to easy classes (Water, Fire) → Rock samples mapped to whichever class shares its grey/brown colour (Ground, Fighting)
-- With LS=0.1: maximum probability any class can receive is 0.9 → model forced to distribute small probability to Rock even when uncertain → recall improves from 0% to partial
+- With LS=0.15: maximum probability any class can receive is 0.85 → model forced to distribute small probability to Rock even when uncertain → recall improves from 0% to partial (recall=0.17 in R)
 - The model now "hedges" its predictions, beneficial for ambiguous classes like Rock and Ground
 
-### Fighting replaces Rock as worst class
-- Rock: 0.000 → 0.117 (+0.117, LS rescued it from complete invisibility)
-- Fighting: worst this run at 0.073 — humanoid sprites are fundamentally ambiguous with Normal
-- Ground: 0.088 — still very low, brown/grey overlap with Rock and Fighting
+### Fighting and Ground as hardest classes
+- Rock: 0.000 → 0.13 (+0.13, LS rescued it from complete invisibility)
+- Ground: 0.11 — lowest F1 overall (49 samples, brown/grey overlaps everything)
+- Fighting: 0.13 — tied with Rock; humanoid sprites are fundamentally ambiguous with Normal
 
 ### Overfitting gap (C_ls01_drop03 epoch-by-epoch — key epochs)
 
@@ -523,10 +527,10 @@ Adding more experiments within MLP space (different widths, dropouts, schedulers
 | Kaggle public score         | **0.2288** (submitted ENS_C_E)                                    |
 | Epochs run (best solo)      | **32** — best checkpoint via EarlyStopping (patience=7)           |
 | Total experiment time       | **2 658 s (~44 min)** across 19 solo experiments                  |
-| Best per-class F1           | **Fire: ~0.480**                                                  |
-| Worst per-class F1          | **Fighting: ~0.073**                                              |
-| 2nd worst per-class F1      | **Ground: ~0.088**                                                |
-| Rock improvement            | 0.000 → **0.117** after adding label_smoothing                    |
+| Best per-class F1           | **Fire: 0.46**                                                    |
+| Worst per-class F1          | **Ground: 0.11**                                                  |
+| 2nd worst per-class F1      | **Fighting: 0.13 / Rock: 0.13**                                   |
+| Rock improvement            | 0.000 → **0.13** after adding label_smoothing                     |
 | Main confusion pair         | Fighting/Normal (humanoid); Ground/Rock (grey/brown)              |
 | Augmentation effect         | −0.047 F1 (R_aug vs R; confirms theory — MLP has no spatial bias) |
 | Ensemble C+E gain           | +0.003 over best solo (0.2428 vs 0.2396)                          |
@@ -567,7 +571,7 @@ Adding more experiments within MLP space (different widths, dropouts, schedulers
 ## 12. Interesting Things to Mention
 
 - **R_ls015_drop03 won solo — LS=0.15 marginally beats LS=0.10** — The most impactful change in the entire search is label_smoothing level. LS=0.15 vs LS=0.10 difference is tiny (0.2396 vs 0.2395) but consistent. On small datasets with noisy class boundaries (Bug≈Grass, Rock≈Ground), more smoothing = "hedge your bets more = marginal gain".
-- **Rock: F1 went from 0.000 (A_vanilla) to ~0.12 (R)** — direct evidence that Rock=0.000 was caused by overconfidence, not unlearn-ability. LS prevents probability 1.0 → Rock gets partial attention.
+- **Rock: F1 went from 0.000 (A_vanilla) to 0.13 (R)** — direct evidence that Rock=0.000 was caused by overconfidence, not unlearn-ability. LS prevents probability 1.0 → Rock gets partial attention (recall=0.17 in best solo R).
 - **Augmentation HURTS MLP, confirmed at −0.047 F1 on both C and R** — stronger than theory would predict. Sets up the CNN story: "same pipeline will help CNN because convolutions preserve spatial layout."
 - **C + E ensemble beats any solo despite neither being the top solo** — C=0.2395, E=0.2357, but ENS_C_E=0.2428 beats R=0.2396. Diversity of error correction mechanisms (class weights vs sampler) creates more complementary predictions than two top solos (C+R=0.2339).
 - **Double-compensation kills performance** — O (sampler + CW together) = 0.1920, worst among non-narrow models. Over-correcting imbalance is as bad as ignoring it.
