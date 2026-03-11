@@ -18,7 +18,7 @@ class CNN(nn.Module):
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 400)
+        x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -46,7 +46,7 @@ class LeNet5(nn.Module):
         # Input: 32x32
         x = self.pool1(F.relu(self.conv1(x)))  # Conv -> ReLU -> Pooling
         x = self.pool2(F.relu(self.conv2(x)))  # Conv -> ReLU -> Pooling
-        x = x.view(-1, 16 * 14 * 14)  # Flatten
+        x = x.view(x.size(0), -1)   # Flatten
         x = F.relu(self.fc1(x))     # First fully connected layer
         x = F.relu(self.fc2(x))     # Second fully connected layer
         x = self.fc3(x)             # Output layer
