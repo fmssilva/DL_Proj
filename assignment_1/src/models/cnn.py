@@ -5,22 +5,25 @@ import torch.nn.functional as F
 from ..config import NUM_CLASSES
 
 class CNN(nn.Module):
-    def __init__(self, in_channels: int = 3):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super(CNN, self).__init__()
 
         self.conv1 = nn.Conv2d(in_channels, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
+        self.drop2d = nn.Dropout2d(dropout)
         self.fc1 = nn.Linear(16 * 13 * 13, 120)
         self.fc2 = nn.Linear(120, 84)
+        self.drop = nn.Dropout(dropout)
         self.fc3 = nn.Linear(84, NUM_CLASSES)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
+        x = self.drop2d(x)
         x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = self.drop(F.relu(self.fc1(x)))
+        x = self.drop(F.relu(self.fc2(x)))
         x = self.fc3(x)
 
         return x
@@ -52,4 +55,52 @@ class LeNet5(nn.Module):
         x = F.relu(self.fc2(x))     # Second fully connected layer
         x = self.fc3(x)             # Output layer
 
+        return x
+
+
+class DeepCNN(nn.Module):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            # Block 1
+            nn.Conv2d(in_channels, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Dropout2d(dropout),
+
+            # Block 2
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Dropout2d(dropout),
+
+            # Block 3
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Dropout2d(dropout),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d((4, 4)),  # handles any input size
+            nn.Flatten(),
+            nn.Linear(128 * 4 * 4, 512),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(512, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.classifier(x)
         return x
