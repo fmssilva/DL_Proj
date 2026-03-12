@@ -69,7 +69,6 @@ class DeepCNN(nn.Module):
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
-            nn.Dropout2d(dropout),
 
             # Block 2
             nn.Conv2d(32, 64, 3, padding=1),
@@ -79,14 +78,12 @@ class DeepCNN(nn.Module):
             nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
-            nn.Dropout2d(dropout),
 
             # Block 3
             nn.Conv2d(64, 128, 3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
-            nn.Dropout2d(dropout),
         )
 
         self.classifier = nn.Sequential(
