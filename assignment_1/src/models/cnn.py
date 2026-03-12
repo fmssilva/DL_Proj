@@ -38,7 +38,7 @@ class LeNet5(nn.Module):
         # Second pooling layer
         self.pool2 = nn.AvgPool2d(kernel_size=2, stride=2)
         # Fully connected layers
-        self.fc1 = nn.Linear(16 * 6 * 6, 120)
+        self.fc1 = nn.Linear(16 * 14 * 14, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
 
