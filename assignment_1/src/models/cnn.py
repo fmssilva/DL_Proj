@@ -28,6 +28,7 @@ class CNN(nn.Module):
 class LeNet5(nn.Module):
     def __init__(self, in_channels: int = 3):
         super(LeNet5, self).__init__()
+        fc1_in_size = 16*14*14 if in_channels == 3 else 16*5*5
 
         # First convolutional layer: 1 or 3 input channels, 6 output channels, 5x5 kernel
         self.conv1 = nn.Conv2d(in_channels, 6, kernel_size=5, padding=2)
@@ -38,7 +39,7 @@ class LeNet5(nn.Module):
         # Second pooling layer
         self.pool2 = nn.AvgPool2d(kernel_size=2, stride=2)
         # Fully connected layers
-        self.fc1 = nn.LazyLinear(120)
+        self.fc1 = nn.Linear(fc1_in_size, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, NUM_CLASSES)
 
