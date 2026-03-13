@@ -37,22 +37,29 @@ class CNN(nn.Module):
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super(CNN, self).__init__()
 
-        self.conv1 = nn.Conv2d(in_channels, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 13 * 13, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.drop = nn.Dropout(dropout)
-        self.fc3 = nn.Linear(84, NUM_CLASSES)
+        self.features = nn.Sequential(
+            # Block 1
+            nn.Conv2d(in_channels, 6, 5),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+
+            # Block 2
+            nn.Conv2d(6, 16, 5),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU()
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(16 * 13 * 13, 120),
+            nn.ReLU(),
+            nn.Linear(120, 84),
+            nn.Dropout(dropout),
+            nn.Linear(84, NUM_CLASSES)
+        )
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(x.size(0), -1)
-        x = self.drop(F.relu(self.fc1(x)))
-        x = self.drop(F.relu(self.fc2(x)))
-        x = self.fc3(x)
-
+        x = self.features(x)
+        x = self.classifier(x)
         return x
 
 class MediumCNN(nn.Module):
@@ -134,5 +141,58 @@ class DeepCNN(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
+        x = self.classifier(x)
+        return x
+
+class MultiScaleCNN(nn.Module):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+        super(MultiScaleCNN, self).__init__()
+
+        # Block 1
+        self.b1_conv1 = nn.Conv2d(in_channels, 16, 3, padding=1) # Branch 1
+        self.b1_conv2 = nn.Conv2d(in_channels, 16, 5, padding=2) # Branch 2
+        self.b1_batchnorm = nn.BatchNorm2d(32)
+
+        self.pool = nn.MaxPool2d(2, 2)
+
+        # Block 2
+        self.b2_conv1 = nn.Conv2d(32, 32, 3, padding=1) # Branch 1
+        self.b2_conv2 = nn.Conv2d(32, 32, 5, padding=2) # Branch 2
+        self.b2_batchnorm = nn.BatchNorm2d(64)
+
+        # Block 3
+        self.b3_conv1 = nn.Conv2d(64, 64, 3, padding=1) # Branch 1
+        self.b3_conv2 = nn.Conv2d(64, 64, 5, padding=2) # Branch 2
+        self.b3_batchnorm = nn.BatchNorm2d(128)
+
+        self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Dropout(dropout),
+            nn.Linear(128, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        # Block 1
+        x1 = self.b1_conv1(x)
+        x2 = self.b1_conv2(x)
+        x = torch.cat([x1, x2], dim=1) # Merge both branches into one
+        x = F.relu(self.b1_batchnorm(x))
+        x = self.pool(x)
+
+        # Block 2
+        x1 = self.b2_conv1(x)
+        x2 = self.b2_conv2(x)
+        x = torch.cat([x1, x2], dim=1) # Merge both branches into one
+        x = F.relu(self.b2_batchnorm(x))
+        x = self.pool(x)
+
+        # Block 3
+        x1 = self.b3_conv1(x)
+        x2 = self.b3_conv2(x)
+        x = torch.cat([x1, x2], dim=1) # Merge both branches into one
+        x = F.relu(self.b3_batchnorm(x))
+        x = self.pool(x)
+
         x = self.classifier(x)
         return x
