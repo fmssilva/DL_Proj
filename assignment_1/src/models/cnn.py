@@ -50,8 +50,9 @@ class CNN(nn.Module):
         )
 
         self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d((2, 2)),
             nn.Flatten(),
-            nn.Linear(16 * 13 * 13, 120),
+            nn.Linear(16 * 2 * 2, 120),
             nn.ReLU(),
             nn.Linear(120, 84),
             nn.Dropout(dropout),
@@ -167,10 +168,10 @@ class MultiScaleCNN(nn.Module):
         self.b3_batchnorm = nn.BatchNorm2d(128)
 
         self.classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.AdaptiveAvgPool2d((2, 2)),
             nn.Flatten(),
             nn.Dropout(dropout),
-            nn.Linear(128, NUM_CLASSES)
+            nn.Linear(128 * 2 * 2, NUM_CLASSES)
         )
 
     def forward(self, x):
