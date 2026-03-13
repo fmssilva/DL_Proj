@@ -171,7 +171,7 @@ class MultiScaleCNN(nn.Module):
         self.b3_batchnorm = nn.BatchNorm2d(128)
 
         self.classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d((2, 2)),
+            nn.AdaptiveMaxPool2d((2, 2)),
             nn.Flatten(),
             nn.Dropout(dropout),
             nn.Linear(128 * 2 * 2, NUM_CLASSES)
