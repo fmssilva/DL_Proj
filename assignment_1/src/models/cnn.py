@@ -40,16 +40,17 @@ class CNN(nn.Module):
         self.features = nn.Sequential(
             # Block 1
             nn.Conv2d(in_channels, 6, 5),
-            nn.MaxPool2d(2, 2),
             nn.ReLU(),
+            nn.MaxPool2d(2, 2),
 
             # Block 2
             nn.Conv2d(6, 16, 5),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2),
-            nn.ReLU()
         )
 
         self.classifier = nn.Sequential(
+            nn.Flatten(),
             nn.Linear(16 * 13 * 13, 120),
             nn.ReLU(),
             nn.Linear(120, 84),
