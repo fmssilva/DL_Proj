@@ -152,7 +152,7 @@ class DeepCNN(nn.Module):
 class WideCNN(nn.Module):
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super(WideCNN, self).__init__()
-        
+
         self.features = nn.Sequential(
             # Block 1
             nn.Conv2d(in_channels, 32, 3, padding=1),
@@ -174,9 +174,9 @@ class WideCNN(nn.Module):
         )
 
         self.classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d((8, 8)), # handles any input size
+            nn.AdaptiveAvgPool2d((4, 4)), # handles any input size
             nn.Flatten(),
-            nn.Linear(256 * 8 * 8, 2048),
+            nn.Linear(256 * 4 * 4, 2048),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(2048, 512),
