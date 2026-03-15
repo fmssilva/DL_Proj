@@ -136,7 +136,7 @@ Each section = one slide (or one accordion block in a notebook).
 | F       | F_narrow                        | FC(256→128→64→32)+BN             | 0.3     | 0.1      | —    | no      | 20     | 0.1739       | 0.2139     | 93.6      |
 | G       | G_bottleneck                    | FC(512→1024→256→128)+BN          | 0.3     | 0.1      | —    | no      | 32     | 0.2285       | 0.2528     | 149.8     |
 | H       | H_vanilla_v2                    | FC(256→128), no BN               | —       | —        | —    | no      | 27     | 0.2072       | 0.2417     | 121.9     |
-| I       | I_v2_rock_weights               | FC(256→128), no BN               | —       | —        | —    | no      | 20     | 0.2116       | 0.2458     | 89.9      |
+| I       | I_v2__weights               | FC(256→128), no BN               | —       | —        | —    | no      | 20     | 0.2116       | 0.2458     | 89.9      |
 | J       | J_mlp_drop02                    | FC(512→256→128)+BN               | 0.2     | 0.1      | —    | no      | 23     | 0.2360       | 0.2542     | 105.3     |
 | K       | K_v2_wd1e5                      | FC(256→128), no BN               | —       | —        | 1e-5 | no      | 13     | 0.2124       | 0.2431     | 58.6      |
 | L       | L_wider_ls                      | FC(1024→512→256)+BN              | 0.3     | 0.1      | —    | no      | 27     | 0.2196       | 0.2361     | 127.8     |
@@ -273,7 +273,7 @@ Actual classification report from `R_ls015_drop03` checkpoint (`val_loss=2.2520`
 | 😐 Normal   | 0.24      | 0.20   | 0.22     | 121     | Largest class but diverse humanoid sprites              |
 | 🐛 Bug      | 0.15      | 0.13   | 0.14     | 75      | Confused with Grass (green) and Poison (purple bugs)    |
 | ⚔️ Fighting | 0.12      | 0.14   | 0.13     | 58      | Humanoid — confused with Normal; hardest class          |
-| 🪨 Rock     | 0.11      | 0.17   | 0.13     | 53      | Grey/brown overlaps Ground and Fighting                 |
+| 🗿 Rock     | 0.11      | 0.17   | 0.13     | 53      | Grey/brown overlaps Ground and Fighting                 |
 | 🌍 Ground   | 0.11      | 0.10   | 0.11     | 49      | Brown/grey; fewest samples; worst class overall         |
 
 **Accuracy: 0.26 (720 val samples) · Macro avg F1: 0.24 · Weighted avg F1: 0.26**
