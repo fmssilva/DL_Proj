@@ -151,6 +151,8 @@ class DeepCNN(nn.Module):
 
 class WideCNN(nn.Module):
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+        super(WideCNN, self).__init__()
+        
         self.features = nn.Sequential(
             # Block 1
             nn.Conv2d(in_channels, 32, 3, padding=1),
