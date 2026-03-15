@@ -149,6 +149,45 @@ class DeepCNN(nn.Module):
         x = self.classifier(x)
         return x
 
+class WideCNN(nn.Module):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+        self.features = nn.Sequential(
+            # Block 1
+            nn.Conv2d(in_channels, 32, 3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            # Block 2
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, 3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d((8, 8)), # handles any input size
+            nn.Flatten(),
+            nn.Linear(256 * 8 * 8, 2048),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(2048, 512),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(512, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.classifier(x)
+        return x
+
 class MultiScaleCNN(nn.Module):
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super(MultiScaleCNN, self).__init__()
