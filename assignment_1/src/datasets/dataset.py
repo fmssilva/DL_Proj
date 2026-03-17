@@ -55,6 +55,21 @@ def get_augment_transforms(size: int) -> transforms.Compose:
     ])
 
 
+def get_strong_aug_transforms(size: int) -> transforms.Compose:
+    """Aggressive RGB augmentation for CNN experiments. Stronger jitter + RandomErasing."""
+    return transforms.Compose([
+        transforms.Resize((size, size)),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.2),
+        transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1),
+        transforms.RandomRotation(20),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD),
+        transforms.RandomErasing(p=0.3, scale=(0.02, 0.2)),  # must be after ToTensor
+    ])
+
+
 def get_gray_transforms(size: int, equalize: bool = False) -> transforms.Compose:
     """
     Grayscale pipeline: resize, optional histogram equalization, convert to 1-channel,
@@ -168,6 +183,7 @@ def get_train_val_loaders(
     df_override: Optional[pd.DataFrame] = None,
     grayscale: bool = False,
     equalize: bool = False,
+    train_transform: Optional[transforms.Compose] = None,
 ) -> tuple[DataLoader, DataLoader]:
     """
     Stratified 80/20 split -> two DataLoaders.
@@ -176,6 +192,7 @@ def get_train_val_loaders(
     grayscale=True: outputs (1, H, W) tensors instead of (3, H, W). input_dim = size*size.
     equalize=True: applies histogram equalization before grayscale (only used when grayscale=True).
     df_override: pass a pre-filtered DataFrame instead of reading csv_path (used for FAST_RUN).
+    train_transform: explicit transform for train loader — overrides augment/grayscale flags if provided.
     """
     df = df_override if df_override is not None else pd.read_csv(csv_path)
     label_to_idx = {cls: i for i, cls in enumerate(CLASSES)}
@@ -190,12 +207,18 @@ def get_train_val_loaders(
     )
 
     # pick the right transform family (RGB vs gray, base vs augmented)
-    if grayscale:
+    # train_transform param overrides everything if provided
+    if train_transform is not None:
+        pass  # use caller-supplied transform directly
+    elif grayscale:
         train_transform = get_gray_aug_transforms(img_size, equalize=equalize) if augment else get_gray_transforms(img_size, equalize=equalize)
-        val_transform   = get_gray_transforms(img_size, equalize=equalize)
     else:
         train_transform = get_augment_transforms(img_size) if augment else get_base_transforms(img_size)
-        val_transform   = get_base_transforms(img_size)
+
+    if grayscale:
+        val_transform = get_gray_transforms(img_size, equalize=equalize)
+    else:
+        val_transform = get_base_transforms(img_size)
 
     # pass df directly so PokemonDataset uses the (possibly subsampled) rows, not the full CSV
     train_ds = PokemonDataset(img_dir, train_transform, df=df, indices=train_idx)

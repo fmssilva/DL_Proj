@@ -1,6 +1,14 @@
-# MLP models for Task 1. Flat pixel vector -> FC stack -> 9 class logits.
-# All classes accept in_channels (default 3 for RGB, set to 1 for grayscale).
+# MLP builder for Task 1.  Flat pixel vector -> FC stack -> 9 class logits.
+# One class replaces the old 7 (VanillaMLP, MLP, NarrowMLP, WiderMLP, …).
 # No softmax — CrossEntropyLoss handles that.
+#
+# Usage in notebook (architecture visible at the call site):
+#   MLP(layers=[512, 256, 128], dropout=0.3)          # was "MLP"
+#   MLP(layers=[128, 64], dropout=0.0, use_bn=False)  # was "VanillaMLP"
+
+from __future__ import annotations
+
+from typing import Sequence
 
 import torch
 import torch.nn as nn
@@ -10,232 +18,47 @@ from ..config import NUM_CLASSES
 
 class MLP(nn.Module):
     """
-    Standard 3-layer funnel: input -> 512 -> 256 -> 128 -> 9.
-    Each hidden layer: Linear -> BatchNorm1d -> ReLU -> Dropout(p).
-    in_channels=1 for grayscale input (input_dim = img_size*img_size).
+    Configurable fully-connected classifier.
 
-    [12288] -> [512] -> [256] -> [128] -> [9]
-                ReLU      ReLU     ReLU   (logits)
-                BN        BN       BN
-                D(p)      D(p)     D(p)
+    Parameters
+    ----------
+    layers : list[int]
+        Hidden-layer widths between the input and the final 9-class head.
+        Example: [512, 256, 128] builds  input → 512 → 256 → 128 → 9.
+    img_size : int
+        Spatial size of the square input image (default 64).
+    dropout : float
+        Dropout probability after every hidden layer (0.0 = disabled).
+    use_bn : bool
+        If True each hidden layer gets BatchNorm1d before ReLU.
+    in_channels : int
+        Number of input channels (3 = RGB, 1 = grayscale).
     """
 
-    def __init__(self, img_size: int = 64, dropout: float = 0.4, in_channels: int = 3):
+    def __init__(
+        self,
+        layers: Sequence[int] = (512, 256, 128),
+        img_size: int = 64,
+        dropout: float = 0.4,
+        use_bn: bool = True,
+        in_channels: int = 3,
+    ):
         super().__init__()
         input_dim = img_size * img_size * in_channels
 
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 512),
-            nn.BatchNorm1d(512),
-            nn.ReLU(),
-            nn.Dropout(dropout),
+        blocks: list[nn.Module] = []
+        prev = input_dim
+        for width in layers:
+            blocks.append(nn.Linear(prev, width))
+            if use_bn:
+                blocks.append(nn.BatchNorm1d(width))
+            blocks.append(nn.ReLU())
+            if dropout > 0:
+                blocks.append(nn.Dropout(dropout))
+            prev = width
+        blocks.append(nn.Linear(prev, NUM_CLASSES))
 
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-
-            nn.Linear(256, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-
-            nn.Linear(128, NUM_CLASSES),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # flatten (B, C, H, W) -> (B, C*H*W) before FC stack
-        return self.net(x.view(x.size(0), -1))
-
-
-class VanillaMLP(nn.Module):
-    """
-    Tiny 2-layer baseline: input -> 128 -> 64 -> 9. No BN, no Dropout.
-    Winning architecture from the first Colab run — simpler often beats
-    over-regularised models on small datasets.
-    in_channels=1 for grayscale input.
-
-    [12288] -> [128] -> [64] -> [9]
-                ReLU     ReLU  (logits)
-    """
-
-    def __init__(self, img_size: int = 64, in_channels: int = 3):
-        super().__init__()
-        input_dim = img_size * img_size * in_channels
-
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64, NUM_CLASSES),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x.view(x.size(0), -1))
-
-
-class VanillaMLP_v2(nn.Module):
-    """
-    Slightly wider vanilla baseline: input -> 256 -> 128 -> 9. No BN, no Dropout.
-    One more unit in first layer vs VanillaMLP — tests whether 256 vs 128 capacity
-    is worth the extra params (still ~3x fewer than MLP).
-    in_channels=1 for grayscale input.
-
-    [12288] -> [256] -> [128] -> [9]
-                ReLU     ReLU   (logits)
-    """
-
-    def __init__(self, img_size: int = 64, in_channels: int = 3):
-        super().__init__()
-        input_dim = img_size * img_size * in_channels
-
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, NUM_CLASSES),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x.view(x.size(0), -1))
-
-
-class NarrowMLP(nn.Module):
-    """
-    Deeper and narrower: input -> 256 -> 128 -> 64 -> 32 -> 9, with BN+Dropout.
-    Hypothesis: fewer params per layer forces compact representations.
-    Result: worst in full run (0.1343) — never converged in 30 epochs.
-    in_channels=1 for grayscale input.
-
-    [12288] -> [256] -> [128] -> [64] -> [32] -> [9]
-                ReLU     ReLU     ReLU    ReLU  (logits)
-                BN       BN       BN      BN
-                D(p)     D(p)     D(p)    D(p)
-    """
-
-    def __init__(self, img_size: int = 64, dropout: float = 0.4, in_channels: int = 3):
-        super().__init__()
-        input_dim = img_size * img_size * in_channels
-
-        def _block(in_f: int, out_f: int) -> list:
-            return [nn.Linear(in_f, out_f), nn.BatchNorm1d(out_f), nn.ReLU(), nn.Dropout(dropout)]
-
-        self.net = nn.Sequential(
-            *_block(input_dim, 256),
-            *_block(256, 128),
-            *_block(128, 64),
-            *_block(64, 32),
-            nn.Linear(32, NUM_CLASSES),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x.view(x.size(0), -1))
-
-
-class WiderMLP(nn.Module):
-    """
-    Extension variant: 1024-wide first layer instead of 512.
-    Same BN+Dropout structure as MLP — tests whether more capacity in the first
-    projection helps learn colour-combination features.
-    in_channels=1 for grayscale input.
-
-    [12288] -> [1024] -> [256] -> [128] -> [9]
-                ReLU      ReLU     ReLU   (logits)
-                BN        BN       BN
-                D(p)      D(p)     D(p)
-    """
-
-    def __init__(self, img_size: int = 64, dropout: float = 0.3, in_channels: int = 3):
-        super().__init__()
-        input_dim = img_size * img_size * in_channels
-
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 1024),
-            nn.BatchNorm1d(1024),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-
-            nn.Linear(1024, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-
-            nn.Linear(256, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-
-            nn.Linear(128, NUM_CLASSES),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x.view(x.size(0), -1))
-
-
-class DeepMLP(nn.Module):
-    """
-    4-layer funnel: input -> 512 -> 256 -> 128 -> 64 -> 9, with BN+Dropout.
-    One extra compression step vs MLP — tests whether a tighter final bottleneck
-    helps or hurts. Fewer params than MLP in the last layers, more layers of
-    abstraction before the classifier head.
-    in_channels=1 for grayscale input.
-
-    [12288] -> [512] -> [256] -> [128] -> [64] -> [9]
-                ReLU     ReLU     ReLU    ReLU   (logits)
-                BN       BN       BN      BN
-                D(p)     D(p)     D(p)    D(p)
-    """
-
-    def __init__(self, img_size: int = 64, dropout: float = 0.3, in_channels: int = 3):
-        super().__init__()
-        input_dim = img_size * img_size * in_channels
-
-        def _block(in_f: int, out_f: int) -> list:
-            return [nn.Linear(in_f, out_f), nn.BatchNorm1d(out_f), nn.ReLU(), nn.Dropout(dropout)]
-
-        self.net = nn.Sequential(
-            *_block(input_dim, 512),
-            *_block(512, 256),
-            *_block(256, 128),
-            *_block(128, 64),
-            nn.Linear(64, NUM_CLASSES),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # flatten (B, C, H, W) -> (B, C*H*W) then through 4-layer funnel
-        return self.net(x.view(x.size(0), -1))
-
-
-class BottleneckMLP(nn.Module):
-    """
-    Expand-then-compress: input -> 512 -> 1024 -> 256 -> 128 -> 9, with BN+Dropout.
-    Wide middle layer captures more feature combinations before compressing.
-    2nd best in full run (0.2072) — close to VanillaMLP winner (0.2104).
-    in_channels=1 for grayscale input.
-
-    [12288] -> [512] -> [1024] -> [256] -> [128] -> [9]
-                ReLU     ReLU     ReLU     ReLU   (logits)
-                BN       BN       BN       BN
-                D(p)     D(p)     D(p)     D(p)
-                        (expand)  (compress)
-    """
-
-    def __init__(self, img_size: int = 64, dropout: float = 0.4, in_channels: int = 3):
-        super().__init__()
-        input_dim = img_size * img_size * in_channels
-
-        def _block(in_f: int, out_f: int) -> list:
-            return [nn.Linear(in_f, out_f), nn.BatchNorm1d(out_f), nn.ReLU(), nn.Dropout(dropout)]
-
-        self.net = nn.Sequential(
-            *_block(input_dim, 512),
-            *_block(512, 1024),   # expand
-            *_block(1024, 256),   # compress
-            *_block(256, 128),
-            nn.Linear(128, NUM_CLASSES),
-        )
+        self.net = nn.Sequential(*blocks)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x.view(x.size(0), -1))

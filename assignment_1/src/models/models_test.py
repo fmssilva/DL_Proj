@@ -1,10 +1,10 @@
 # Forward pass tests for all models. Run with: python -m src.models.models_test
-# Extended for CNN (Task 2) and Transfer (Task 3) once those files exist.
 
 import torch
 
 from src.config import NUM_CLASSES
-from src.models.mlp import MLP, VanillaMLP, VanillaMLP_v2, NarrowMLP, WiderMLP, BottleneckMLP, DeepMLP
+from src.models.mlp import MLP
+from src.models.cnn import BaseCNN, DeepCNN, WideCNN, ResidualCNN, MultiScaleCNN
 
 # use same defaults as the notebook to keep tests meaningful
 _IMG_SIZE = 64
@@ -22,65 +22,94 @@ def _check_forward(model, x, name):
     print(f"[PASS] {name}: output={out.shape}, params={n_params:,}")
 
 
-def test_mlp_forward():
-    """RGB 3-channel MLP forward pass."""
-    _check_forward(MLP(img_size=_IMG_SIZE), torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE), "MLP (RGB)")
+# ── MLP builder tests ────────────────────────────────────────────────────────
+
+def test_mlp_builder_variants():
+    """Test all old architecture shapes via the single MLP builder."""
+    x_rgb  = torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE)
+    x_gray = torch.randn(4, 1, _IMG_SIZE, _IMG_SIZE)
+
+    # was: MLP(dropout=0.4)  ->  [512, 256, 128] + BN + Drop
+    _check_forward(MLP(layers=[512, 256, 128], dropout=0.4),                     x_rgb, "MLP [512,256,128] BN+D(0.4)")
+
+    # was: VanillaMLP  ->  [128, 64] no BN, no dropout
+    _check_forward(MLP(layers=[128, 64], dropout=0.0, use_bn=False),             x_rgb, "MLP [128,64] vanilla")
+
+    # was: VanillaMLP_v2  ->  [256, 128] no BN, no dropout
+    _check_forward(MLP(layers=[256, 128], dropout=0.0, use_bn=False),            x_rgb, "MLP [256,128] vanilla_v2")
+
+    # was: NarrowMLP  ->  [256, 128, 64, 32] BN + Drop
+    _check_forward(MLP(layers=[256, 128, 64, 32], dropout=0.4),                  x_rgb, "MLP [256,128,64,32] narrow")
+
+    # was: WiderMLP  ->  [1024, 256, 128] BN + Drop
+    _check_forward(MLP(layers=[1024, 256, 128], dropout=0.3),                    x_rgb, "MLP [1024,256,128] wider")
+
+    # was: DeepMLP  ->  [512, 256, 128, 64] BN + Drop
+    _check_forward(MLP(layers=[512, 256, 128, 64], dropout=0.3),                 x_rgb, "MLP [512,256,128,64] deep")
+
+    # was: BottleneckMLP  ->  [512, 1024, 256, 128] BN + Drop (expand then compress)
+    _check_forward(MLP(layers=[512, 1024, 256, 128], dropout=0.4),               x_rgb, "MLP [512,1024,256,128] bottleneck")
 
 
-def test_vanilla_mlp_forward():
-    """VanillaMLP RGB forward pass."""
-    _check_forward(VanillaMLP(img_size=_IMG_SIZE), torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE), "VanillaMLP (RGB)")
+def test_mlp_grayscale():
+    """MLP builder with in_channels=1 for grayscale input."""
+    x_gray = torch.randn(4, 1, _IMG_SIZE, _IMG_SIZE)
+    _check_forward(MLP(layers=[512, 256, 128], in_channels=1),                   x_gray, "MLP [512,256,128] gray")
+    _check_forward(MLP(layers=[128, 64], dropout=0.0, use_bn=False, in_channels=1), x_gray, "MLP [128,64] gray")
+    _check_forward(MLP(layers=[256, 128], dropout=0.0, use_bn=False, in_channels=1), x_gray, "MLP [256,128] gray")
 
 
-def test_vanilla_mlp_v2_forward():
-    """VanillaMLP_v2 RGB forward pass."""
-    _check_forward(VanillaMLP_v2(img_size=_IMG_SIZE), torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE), "VanillaMLP_v2 (RGB)")
+def test_mlp_use_bn_flag():
+    """Verify use_bn=False produces fewer parameters (no BN layers)."""
+    m_bn   = MLP(layers=[256, 128], use_bn=True,  dropout=0.3)
+    m_nobn = MLP(layers=[256, 128], use_bn=False, dropout=0.3)
+    p_bn   = sum(p.numel() for p in m_bn.parameters())
+    p_nobn = sum(p.numel() for p in m_nobn.parameters())
+    assert p_bn > p_nobn, f"BN model should have more params: {p_bn} vs {p_nobn}"
+    print(f"[PASS] use_bn flag: with_bn={p_bn:,} > no_bn={p_nobn:,}")
 
 
-def test_narrow_mlp_forward():
-    """NarrowMLP RGB forward pass."""
-    _check_forward(NarrowMLP(img_size=_IMG_SIZE), torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE), "NarrowMLP (RGB)")
+def test_mlp_dropout_zero():
+    """dropout=0.0 should produce no Dropout layers in the model."""
+    m = MLP(layers=[256, 128], dropout=0.0)
+    for module in m.net:
+        assert not isinstance(module, torch.nn.Dropout), "Found Dropout when dropout=0.0"
+    print("[PASS] dropout=0.0: no Dropout layers in model")
 
 
-def test_bottleneck_mlp_forward():
-    """BottleneckMLP RGB forward pass."""
-    _check_forward(BottleneckMLP(img_size=_IMG_SIZE), torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE), "BottleneckMLP (RGB)")
+# ── CNN tests (Task 2) ───────────────────────────────────────────────────────
+
+def test_cnn_forward():
+    """Forward pass for all CNN architectures on RGB 64x64 input."""
+    x = torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE)
+    _check_forward(BaseCNN(),                        x, "BaseCNN")
+    _check_forward(BaseCNN(use_bn=False),            x, "BaseCNN (NoBN)")
+    _check_forward(DeepCNN(),                        x, "DeepCNN")
+    _check_forward(WideCNN(),                        x, "WideCNN")
+    _check_forward(ResidualCNN(use_se=False),        x, "ResidualCNN")
+    _check_forward(ResidualCNN(use_se=True),         x, "ResidualCNN+SE")
+    _check_forward(MultiScaleCNN(),                  x, "MultiScaleCNN")
 
 
-def test_wider_mlp_forward():
-    """WiderMLP RGB forward pass (1024-wide first layer extension variant)."""
-    _check_forward(WiderMLP(img_size=_IMG_SIZE), torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE), "WiderMLP (RGB)")
-
-
-def test_deep_mlp_forward():
-    """DeepMLP RGB forward pass (4-layer funnel: 512->256->128->64)."""
-    _check_forward(DeepMLP(img_size=_IMG_SIZE), torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE), "DeepMLP (RGB)")
-
-
-def test_gray_mlp_forward():
-    """All models must also accept grayscale (1-channel) input when in_channels=1."""
-    gray_input = torch.randn(4, 1, _IMG_SIZE, _IMG_SIZE)
-    _check_forward(MLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "MLP (gray)")
-    _check_forward(VanillaMLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "VanillaMLP (gray)")
-    _check_forward(VanillaMLP_v2(img_size=_IMG_SIZE, in_channels=1), gray_input, "VanillaMLP_v2 (gray)")
-    _check_forward(NarrowMLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "NarrowMLP (gray)")
-    _check_forward(WiderMLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "WiderMLP (gray)")
-    _check_forward(BottleneckMLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "BottleneckMLP (gray)")
-    _check_forward(DeepMLP(img_size=_IMG_SIZE, in_channels=1), gray_input, "DeepMLP (gray)")
+def test_cnn_dropout_override():
+    """Verify dropout param is respected — different values should work without errors."""
+    x = torch.randn(2, 3, _IMG_SIZE, _IMG_SIZE)
+    for drop in [0.0, 0.3, 0.5]:
+        _check_forward(BaseCNN(dropout=drop), x, f"BaseCNN(drop={drop})")
+        _check_forward(ResidualCNN(dropout=drop), x, f"ResidualCNN(drop={drop})")
 
 
 if __name__ == "__main__":
     print("=" * 60)
     print("models_test.py — running all tests")
     print("=" * 60)
-    test_mlp_forward()
-    test_vanilla_mlp_forward()
-    test_vanilla_mlp_v2_forward()
-    test_narrow_mlp_forward()
-    test_bottleneck_mlp_forward()
-    test_wider_mlp_forward()
-    test_deep_mlp_forward()
-    test_gray_mlp_forward()
+    test_mlp_builder_variants()
+    test_mlp_grayscale()
+    test_mlp_use_bn_flag()
+    test_mlp_dropout_zero()
+    print("-" * 60)
+    test_cnn_forward()
+    test_cnn_dropout_override()
     print("=" * 60)
     print("All model tests passed.")
     print("=" * 60)
