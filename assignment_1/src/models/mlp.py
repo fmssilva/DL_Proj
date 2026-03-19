@@ -39,9 +39,9 @@ class MLP(nn.Module):
         self,
         layers: Sequence[int] = (512, 256, 128),
         img_size: int = 64,
+        in_channels: int = 3,
         dropout: float = 0.4,
         use_bn: bool = True,
-        in_channels: int = 3,
     ):
         super().__init__()
         input_dim = img_size * img_size * in_channels

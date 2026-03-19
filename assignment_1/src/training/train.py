@@ -25,16 +25,15 @@ def train_one_epoch(
     model.train()
     total_loss = 0.0
 
-    for images, labels in loader:
+    for images, labels in loader: # batches of (images, labels), already shuffled by the DataLoader
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
 
         optimizer.zero_grad()
 
         if scaler is not None:
-            # AMP path — halves memory, ~2x faster on supported GPUs
-            # device_type required by torch.amp.autocast (new API in 2.4+)
-            with autocast(device_type=device.type):
+            # If we pass a scaler, so we'll use AMP - Automatic Mixed Precision - uses both 16-bit and 32-bit floating point numbers to speed up training and reduce memory usage on GPUs that support it
+            with autocast(device_type=device.type): # Temporarily enables mixed precision for the operations inside the block
                 logits = model(images)
                 loss   = criterion(logits, labels)
             scaler.scale(loss).backward()
