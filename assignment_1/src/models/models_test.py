@@ -77,6 +77,41 @@ def test_mlp_dropout_zero():
     print("[PASS] dropout=0.0: no Dropout layers in model")
 
 
+def test_mlp_residual():
+    """Residual MLP: constant-width blocks with skip connections, correct output shape."""
+    x = torch.randn(4, 3, _IMG_SIZE, _IMG_SIZE)
+
+    # standard 3-block residual stack
+    _check_forward(MLP(layers=[512, 512, 512], dropout=0.3, use_residual=True),              x, "ResidualMLP [512x3] BN")
+    # 4-block narrower residual
+    _check_forward(MLP(layers=[256, 256, 256, 256], dropout=0.3, use_residual=True),         x, "ResidualMLP [256x4] BN")
+    # no BN variant
+    _check_forward(MLP(layers=[512, 512], dropout=0.3, use_bn=False, use_residual=True),     x, "ResidualMLP [512x2] no-BN")
+    # no dropout
+    _check_forward(MLP(layers=[512, 512, 512], dropout=0.0, use_residual=True),              x, "ResidualMLP [512x3] no-drop")
+
+    # residual MLP should have MORE params than equivalent plain MLP
+    # because each _ResidualBlock has 2 linear layers
+    plain   = MLP(layers=[512, 512, 512], dropout=0.3, use_residual=False)
+    residual = MLP(layers=[512, 512, 512], dropout=0.3, use_residual=True)
+    p_plain   = sum(p.numel() for p in plain.parameters())
+    p_residual = sum(p.numel() for p in residual.parameters())
+    assert p_residual > p_plain, (
+        f"Residual MLP should have more params than plain: {p_residual} vs {p_plain}"
+    )
+    print(f"[PASS] residual_params={p_residual:,} > plain_params={p_plain:,} (each block has 2 linears)")
+
+    # non-uniform widths must raise ValueError
+    try:
+        MLP(layers=[512, 256], use_residual=True)
+        raise AssertionError("Should have raised ValueError on non-uniform widths")
+    except ValueError:
+        pass
+    print("[PASS] use_residual=True with non-uniform widths raises ValueError")
+
+    print("  test_mlp_residual passed")
+
+
 # ── CNN tests (Task 2) ───────────────────────────────────────────────────────
 
 def test_cnn_forward():
@@ -107,6 +142,7 @@ if __name__ == "__main__":
     test_mlp_grayscale()
     test_mlp_use_bn_flag()
     test_mlp_dropout_zero()
+    test_mlp_residual()
     print("-" * 60)
     test_cnn_forward()
     test_cnn_dropout_override()
