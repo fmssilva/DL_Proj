@@ -170,14 +170,9 @@ class WideCNN(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.AdaptiveAvgPool2d((2, 2)), # handles any input size
+            nn.Dropout(dropout),
             nn.Flatten(),
-            nn.Linear(256 * 2 * 2, 512),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(512, 128),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(128, NUM_CLASSES)
+            nn.Linear(256 * 2 * 2, NUM_CLASSES)
         )
 
     def forward(self, x):
