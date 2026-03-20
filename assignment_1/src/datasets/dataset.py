@@ -47,6 +47,9 @@ def get_augment_transforms(size: int) -> transforms.Compose:
     """RGB pipeline with augmentation: flip, color jitter, small rotation. For CNN/Transfer training."""
     return transforms.Compose([
         transforms.Resize((size, size)),
+        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.RandomRotation(15),
         transforms.ToTensor(),
         transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD),
     ])
