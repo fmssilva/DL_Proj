@@ -213,7 +213,7 @@ def get_train_val_loaders(
     elif grayscale:
         train_transform = get_gray_aug_transforms(img_size, equalize=equalize) if augment else get_gray_transforms(img_size, equalize=equalize)
     else:
-        train_transform = get_augment_transforms(img_size) if augment else get_base_transforms(img_size)
+        train_transform = get_strong_aug_transforms(img_size) if augment else get_base_transforms(img_size)
 
     if grayscale:
         val_transform = get_gray_transforms(img_size, equalize=equalize)
