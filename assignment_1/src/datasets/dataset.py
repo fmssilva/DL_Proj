@@ -47,9 +47,6 @@ def get_augment_transforms(size: int) -> transforms.Compose:
     """RGB pipeline with augmentation: flip, color jitter, small rotation. For CNN/Transfer training."""
     return transforms.Compose([
         transforms.Resize((size, size)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
-        transforms.RandomRotation(15),
         transforms.ToTensor(),
         transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD),
     ])
@@ -213,7 +210,7 @@ def get_train_val_loaders(
     elif grayscale:
         train_transform = get_gray_aug_transforms(img_size, equalize=equalize) if augment else get_gray_transforms(img_size, equalize=equalize)
     else:
-        train_transform = get_strong_aug_transforms(img_size) if augment else get_base_transforms(img_size)
+        train_transform = get_augment_transforms(img_size) if augment else get_base_transforms(img_size)
 
     if grayscale:
         val_transform = get_gray_transforms(img_size, equalize=equalize)
