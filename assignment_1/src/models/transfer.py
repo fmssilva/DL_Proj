@@ -62,7 +62,7 @@ class VGG_16_Transfer(nn.Module):
         nn.Linear(in_features=4096, out_features=4096, bias=True),
         nn.ReLU(inplace=True),
         nn.Dropout(dropout),
-        nn.Linear(in_features=4096, out_feature=NUM_CLASSES, bias=True)
+        nn.Linear(in_features=4096, out_features=NUM_CLASSES, bias=True)
   )
 
     def forward(self, x):
