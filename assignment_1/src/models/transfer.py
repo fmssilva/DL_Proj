@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights,vgg16, VGG16_Weights, swin_v2_t, Swin_V2_T_Weights, resnet34, ResNet34_Weights,convnext_tiny,ConvNeXt_Tiny_Weights
 
 from ..config import NUM_CLASSES
 
@@ -15,9 +15,9 @@ class EfficientNetB0Transfer(nn.Module):
             self.backbone.features[0][0] = nn.Conv2d(
                 in_channels,
                 32,
-                kernel_size=3,
-                stride=2,
-                padding=1,
+                kernel_size=(3, 3), 
+                stride=(2, 2), 
+                padding=(1, 1), 
                 bias=False
             )
 
@@ -27,6 +27,121 @@ class EfficientNetB0Transfer(nn.Module):
 
         in_features = self.backbone.classifier[1].in_features
         self.backbone.classifier = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(in_features, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        return self.backbone(x)
+    
+class VGG_16_Transfer(nn.Module):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+        super().__init__()
+
+        weights = VGG16_Weights.IMAGENET1K_V1
+        self.backbone = vgg16(weights=weights)
+
+        if in_channels != 3:
+            self.backbone.features[0][0] = nn.Conv2d(
+                in_channels,
+                64,
+                kernel_size=(3,3), 
+                stride=(1, 1), 
+                padding=(1, 1)
+            )
+
+      
+        for param in self.backbone.features.parameters():
+            param.requires_grad = False
+
+        in_features = self.backbone.classifier[6].in_features
+        self.backbone.classifier[6] = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(in_features, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        return self.backbone(x)
+    
+class Swin_V2_t_Transfer(nn.Module):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+        super().__init__()
+
+        weights = Swin_V2_T_Weights.IMAGENET1K_V1
+        self.backbone = swin_v2_t(weights=weights)
+
+        if in_channels != 3:
+            self.backbone.features[0][0] = nn.Conv2d(
+                in_channels, 
+                96, 
+                kernel_size=(4, 4), 
+                stride=(4, 4)
+            )
+
+      
+        for param in self.backbone.features.parameters():
+            param.requires_grad = False
+
+        in_features = self.backbone.head.in_features
+        self.backbone.head = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(in_features, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        return self.backbone(x)
+    
+class ResNet34_Transfer(nn.Module):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+        super().__init__()
+
+        weights = ResNet34_Weights.IMAGENET1K_V1
+        self.backbone = resnet34(weights=weights)
+
+        if in_channels != 3:
+            self.backbone.conv1 = nn.Conv2d(
+                in_channels,
+                64, 
+                kernel_size=(7, 7), 
+                stride=(2, 2), 
+                padding=(3, 3), 
+                bias=False
+            )
+
+      
+        for param in self.backbone.features.parameters():
+            param.requires_grad = False
+
+        in_features = self.backbone.fc.in_features
+        self.backbone.fc = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(in_features, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        return self.backbone(x)
+    
+class ConvNext_tiny_Transfer(nn.Module):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+        super().__init__()
+
+        weights = ConvNeXt_Tiny_Weights.IMAGENET1K_V1
+        self.backbone = convnext_tiny(weights=weights)
+
+        if in_channels != 3:
+            self.backbone.features[0][0] = nn.Conv2d(
+                in_channels, 
+                96, 
+                kernel_size=(4, 4), 
+                stride=(4, 4)
+            )
+
+      
+        for param in self.backbone.features.parameters():
+            param.requires_grad = False
+
+        in_features = self.backbone.classifier[2].in_features
+        self.backbone.classifier[2] = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(in_features, NUM_CLASSES)
         )
