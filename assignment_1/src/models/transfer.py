@@ -54,11 +54,16 @@ class VGG_16_Transfer(nn.Module):
         for param in self.backbone.features.parameters():
             param.requires_grad = False
 
-        in_features = self.backbone.classifier[6].in_features
-        self.backbone.classifier[6] = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES)
-        )
+        in_features = self.backbone.classifier.in_features
+        self.backbone.classifier = nn.Sequential(
+        nn.Linear(in_features=25088, out_features=4096, bias=True),
+        nn.ReLU(inplace=True),
+        nn.Dropout(dropout),
+        nn.Linear(in_features=4096, out_features=4096, bias=True),
+        nn.ReLU(inplace=True),
+        nn.Dropout(dropout),
+        nn.Linear(in_features=4096, out_feature=NUM_CLASSES, bias=True)
+  )
 
     def forward(self, x):
         return self.backbone(x)
@@ -83,10 +88,9 @@ class Swin_V2_t_Transfer(nn.Module):
             param.requires_grad = False
 
         in_features = self.backbone.head.in_features
-        self.backbone.head = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES)
-        )
+        self.backbone.head = nn.Linear(in_features=in_features, 
+                                       out_features=NUM_CLASSES, 
+                                       bias=True)
 
     def forward(self, x):
         return self.backbone(x)
@@ -109,14 +113,15 @@ class ResNet34_Transfer(nn.Module):
             )
 
       
-        for param in self.backbone.features.parameters():
+        for param in self.backbone.parameters():
             param.requires_grad = False
 
         in_features = self.backbone.fc.in_features
-        self.backbone.fc = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES)
-        )
+        self.backbone.fc = nn.Linear(in_features=in_features, 
+                                     out_features=NUM_CLASSES, 
+                                     bias=True)
+        for param in self.backbone.fc.parameters():
+            param.requires_grad = True
 
     def forward(self, x):
         return self.backbone(x)
@@ -140,11 +145,12 @@ class ConvNext_tiny_Transfer(nn.Module):
         for param in self.backbone.features.parameters():
             param.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.classifier.in_features
         self.backbone.classifier[2] = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES)
-        )
+            nn.LayerNorm2d((in_features,), eps=1e-06, elementwise_affine=True),
+            nn.Flatten(start_dim=1, end_dim=-1),
+            nn.Linear(in_features=in_features, out_features=NUM_CLASSES, bias=True)
+            )
 
     def forward(self, x):
         return self.backbone(x)
