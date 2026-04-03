@@ -146,9 +146,11 @@ class ConvNext_tiny_Transfer(nn.Module):
             param.requires_grad = False
 
         in_features = self.backbone.classifier[2].in_features
-        self.backbone.classifier[2] = nn.Linear(in_features=in_features, 
-                                                out_features=NUM_CLASSES, 
-                                                bias=True)
+        self.backbone.classifier = nn.Sequential(
+            nn.BatchNorm2d(in_features),
+            nn.Flatten(start_dim=1),
+            nn.Linear(in_features= in_features, out_features=NUM_CLASSES)
+            )
           
 
     def forward(self, x):
