@@ -42,7 +42,7 @@ class VGG_16_Transfer(nn.Module):
         self.backbone = vgg16(weights=weights)
 
         if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
+            self.backbone.features[0] = nn.Conv2d(
                 in_channels,
                 64,
                 kernel_size=(3,3), 
