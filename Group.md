@@ -5,5 +5,4 @@
 Ruben Silva raro.silva@campus.fct.unl.pt
 
 
-Miguel Magalhães
-m.cangalhas@campus.fct.unl.pt
+Miguel Cangalhas m.cangalhas@campus.fct.unl.pt
