@@ -28,7 +28,7 @@ All shared infrastructure from Task 2 is reused verbatim:
 
 ---
 
-## 1. `src/models/cnn.py` — Architectures
+## 1. `src/models/transfer.py` — Architectures
 
 ### Design principles
 - No softmax — `CrossEntropyLoss` handles it
