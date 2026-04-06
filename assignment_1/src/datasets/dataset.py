@@ -103,6 +103,24 @@ def get_gray_aug_transforms(size: int, equalize: bool = False) -> transforms.Com
     return transforms.Compose(steps)
 
 
+def get_transfer_aug_transforms(size: int) -> transforms.Compose:
+    """Gentle augmentation for transfer learning on 224px Pokémon sprites.
+    Calibrated for pretrained backbones that expect ImageNet statistics.
+    Design choices:
+    - no vertical flip -- sprites are always upright
+    - rotation max 10deg -- more would make upright sprites look unnatural
+    - mild ColorJitter -- colour is the primary type signal, don't distort it
+    - no RandomErasing / Cutout -- erases type-discriminative colour regions"""
+    return transforms.Compose([
+        transforms.Resize((size, size)),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomRotation(degrees=10),
+        transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD),
+    ])
+
+
 # ── dataset ───────────────────────────────────────────────────────────────────
 
 class PokemonDataset(Dataset):
