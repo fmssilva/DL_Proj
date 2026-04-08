@@ -69,7 +69,7 @@ def generate_submission_from_preds(
     print(f"Submission saved: {out_path}  ({len(df)} rows)")
 
 
-def validate_submission(path: Path, expected_rows: int = 900) -> None:
+def validate_submission(path: Path, expected_rows) -> None:
     """
     Sanity-check the submission file before uploading.
     Raises ValueError with a clear message if anything looks wrong.
