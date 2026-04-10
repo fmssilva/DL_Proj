@@ -23,13 +23,13 @@ class EfficientNetB0Transfer(nn.Module):
         super().__init__()
         self.backbone = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
 
-        # replace first conv if not RGB (rarely needed for Task 3)
+        
         if in_channels != 3:
             self.backbone.features[0][0] = nn.Conv2d(
                 in_channels, 32, kernel_size=3, stride=2, padding=1, bias=False
             )
 
-        # freeze all backbone features; head will be replaced below
+        
         for p in self.backbone.features.parameters():
             p.requires_grad = False
 
@@ -88,12 +88,12 @@ class Swin_V2_t_Transfer(nn.Module):
 
         for p in self.backbone.features.parameters():
             p.requires_grad = False
-        # also freeze norm (LayerNorm after the swin stages) -- it's part of the backbone
+        
         for p in self.backbone.norm.parameters():
             p.requires_grad = False
 
         in_features = self.backbone.head.in_features
-        # fix: was nn.Linear only -- dropout param was silently ignored before
+        
         self.backbone.head = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(in_features, NUM_CLASSES),
@@ -115,18 +115,17 @@ class ResNet34_Transfer(nn.Module):
                 in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
             )
 
-        # freeze entire backbone first, then replace fc (fc stays trainable)
+        
         for p in self.backbone.parameters():
             p.requires_grad = False
 
         in_features = self.backbone.fc.in_features
-        # fix: was nn.Linear only -- dropout param was silently ignored before
+       
         self.backbone.fc = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(in_features, NUM_CLASSES),
         )
-        # fc is a new nn.Module -- its params default to requires_grad=True, which is what we want
-
+        
     def forward(self, x):
         return self.backbone(x)
 
@@ -147,11 +146,10 @@ class ConvNext_tiny_Transfer(nn.Module):
             p.requires_grad = False
 
         in_features = self.backbone.classifier[2].in_features
-        # fix: was nn.BatchNorm2d(768) on a (B, 768) tensor after AdaptiveAvgPool -> crash
-        # ConvNeXt avgpool gives (B, 768, 1, 1); Flatten to (B, 768) before LayerNorm
+        
         self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     # (B, 768, 1, 1) -> (B, 768)
-            nn.LayerNorm(in_features),   # normalise the 768-dim feature vector
+            nn.Flatten(start_dim=1),     
+            nn.LayerNorm(in_features),  
             nn.Dropout(dropout),
             nn.Linear(in_features, NUM_CLASSES),
         )
