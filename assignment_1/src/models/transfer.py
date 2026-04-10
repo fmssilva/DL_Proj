@@ -228,24 +228,24 @@ class Mobilenet_v3_large_tranfer(nn.Module):
     
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        self.backbone = mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
             self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+                in_channels, 16, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
             )
 
         for p in self.backbone.features.parameters():
             p.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.classifier[3].in_features
         
         self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
+            nn.Linear(in_features=960, out_features=1280, bias=True),
+            nn.Hardswish(),
+            nn.Dropout(p=dropout, inplace=True),
+            nn.Linear(in_features=in_features, out_features=NUM_CLASSES, bias=True)
+            )
 
     def forward(self, x):
         return self.backbone(x)
@@ -254,23 +254,23 @@ class Mobilenet_v3_small_Transfer(nn.Module):
     
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        self.backbone = mobilenet_v3_small(weights=MobileNet_V3_Small_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
             self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+                in_channels, 16, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
             )
 
         for p in self.backbone.features.parameters():
             p.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.classifier[3].in_features
         
         self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
+            nn.Linear(in_features=576, out_features=1024, bias=True),
+            nn.Hardswish(),
+            nn.Dropout(p=dropout, inplace=True),
+            nn.Linear(in_features=in_features, out_features=NUM_CLASSES, bias=True)
         )
 
     def forward(self, x):
@@ -281,22 +281,20 @@ class Efficientnet_v2_s_Transfer(nn.Module):
     
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        self.backbone = efficientnet_v2_s(weights=EfficientNet_V2_S_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
             self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+                in_channels, 24, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
             )
 
         for p in self.backbone.features.parameters():
             p.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.classifier[1].in_features
         
-        self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
-            nn.Dropout(dropout),
+        self.backbone.classifier = nn.Sequential( 
+            nn.Dropout(dropout, inplace=True),
             nn.Linear(in_features, NUM_CLASSES),
         )
 
@@ -308,22 +306,20 @@ class Efficientnet_v2_m_Transfer(nn.Module):
     
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        self.backbone = efficientnet_v2_m(weights=EfficientNet_V2_M_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
             self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+                in_channels, 24, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
             )
 
         for p in self.backbone.features.parameters():
             p.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.classifier[1].in_features
         
-        self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
-            nn.Dropout(dropout),
+        self.backbone.classifier = nn.Sequential( 
+            nn.Dropout(dropout, inplace=True),
             nn.Linear(in_features, NUM_CLASSES),
         )
 
@@ -335,21 +331,19 @@ class Googlenet_Transfer(nn.Module):
     
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        self.backbone = googlenet(weights=GoogLeNet_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+            self.backbone.conv1.conv = nn.Conv2d(
+                in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
             )
 
-        for p in self.backbone.features.parameters():
+        for p in self.backbone.parameters():
             p.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.fc.in_features
         
-        self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
+        self.backbone.fc = nn.Sequential( 
             nn.Dropout(dropout),
             nn.Linear(in_features, NUM_CLASSES),
         )
@@ -362,21 +356,19 @@ class Resnext50_32x4d_Transfer(nn.Module):
     
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        self.backbone = resnext50_32x4d(weights=ResNeXt50_32X4D_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+            self.backbone.conv1 = nn.Conv2d(
+                in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
             )
 
-        for p in self.backbone.features.parameters():
+        for p in self.backbone.parameters():
             p.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.fc.in_features
         
-        self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
+        self.backbone.fc = nn.Sequential( 
             nn.Dropout(dropout),
             nn.Linear(in_features, NUM_CLASSES),
         )
@@ -389,21 +381,19 @@ class Resnext101_64x4d_Transfer(nn.Module):
     
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        self.backbone = resnext101_64x4d(weights=ResNeXt101_64X4D_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+            self.backbone.conv1 = nn.Conv2d(
+                in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
             )
 
-        for p in self.backbone.features.parameters():
+        for p in self.backbone.parameters():
             p.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.fc.in_features
         
-        self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
+        self.backbone.fc = nn.Sequential( 
             nn.Dropout(dropout),
             nn.Linear(in_features, NUM_CLASSES),
         )
@@ -415,23 +405,26 @@ class alexnet_Transfer(nn.Module):
     
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        self.backbone = alexnet(weights=AlexNet_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
             self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+                in_channels, 64, kernel_size=(11, 11), stride=(4, 4), padding=(2, 2)
             )
 
         for p in self.backbone.features.parameters():
             p.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.classifier[6].in_features
         
         self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
+            nn.Dropout(p=0.5, inplace=False),
+            nn.Linear(in_features=9216, out_features=4096, bias=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=dropout, inplace=False),
+            nn.Linear(in_features=4096, out_features=4096, bias=True),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_features, NUM_CLASSES, bias=True),
         )
 
     def forward(self, x):
@@ -444,19 +437,17 @@ class Inception_v3_Transfer(nn.Module):
         self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+            self.backbone.Conv2d_1a_3x3.conv = nn.Conv2d(
+                in_channels, 32, kernel_size=(3, 3), stride=(2, 2), bias=False
             )
 
-        for p in self.backbone.features.parameters():
+        for p in self.backbone.parameters():
             p.requires_grad = False
 
-        in_features = self.backbone.classifier[2].in_features
+        in_features = self.backbone.fc.in_features
         
         self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
-            nn.Dropout(dropout),
+            nn.Dropout(dropout,inplace=True),
             nn.Linear(in_features, NUM_CLASSES),
         )
 
