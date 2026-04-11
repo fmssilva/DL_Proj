@@ -194,34 +194,6 @@ class ConvNext_tiny_Transfer(nn.Module):
     def forward(self, x):
         return self.backbone(x)
     
-
-
-class ConvNext_tiny_Transfer(nn.Module):
-    """ConvNeXt-Tiny: features frozen, head = LayerNorm -> Flatten -> Dropout -> Linear(768, 9).
-    Bug fix: original used nn.BatchNorm2d(768) on a 1D tensor after GlobalAvgPool -> shape crash."""
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
-            )
-
-        for p in self.backbone.features.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.classifier[2].in_features
-        
-        self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
-
-    def forward(self, x):
-        return self.backbone(x)
     
 
 class Mobilenet_v3_large_tranfer(nn.Module):
@@ -434,7 +406,7 @@ class Inception_v3_Transfer(nn.Module):
     
     def __init__(self, in_channels: int = 3, dropout: float = 0.4):
         super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        self.backbone = inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
 
         if in_channels != 3:
             self.backbone.Conv2d_1a_3x3.conv = nn.Conv2d(
