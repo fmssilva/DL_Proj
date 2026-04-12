@@ -274,7 +274,7 @@ class Efficientnet_v2_s_Transfer(nn.Module):
                 nn.Linear(in_features, NUM_CLASSES),
             )
         elif (head == "MLP"):
-            self.backbone.head = MLP(layers=[512, 256, 128], input_dim=in_features, dropout=0.3, use_bn=True)
+            self.backbone.classifier = MLP(layers=[512, 256, 128], input_dim=in_features, dropout=0.3, use_bn=True)
 
 
     def forward(self, x):
