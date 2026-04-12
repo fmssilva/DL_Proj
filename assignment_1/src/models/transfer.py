@@ -20,7 +20,7 @@ from torchvision.models import (
     alexnet, AlexNet_Weights,
 )
 
-from mlp import MLP
+from .mlp import MLP
 
 from ..config import NUM_CLASSES
 
