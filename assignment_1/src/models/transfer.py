@@ -18,8 +18,9 @@ from torchvision.models import (
     resnext50_32x4d, ResNeXt50_32X4D_Weights,
     resnext101_64x4d, ResNeXt101_64X4D_Weights,
     alexnet, AlexNet_Weights,
-    inception_v3, Inception_V3_Weights
 )
+
+from mlp import MLP
 
 from ..config import NUM_CLASSES
 
@@ -86,7 +87,7 @@ class VGG_16_Transfer(nn.Module):
 class Swin_V2_t_Transfer(nn.Module):
     """Swin-V2-t transformer: features frozen, head = Dropout -> Linear(768, 9).
     Bug fix: original code had no Dropout despite accepting the param."""
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4, head:str = "BASE"):
         super().__init__()
         self.backbone = swin_v2_t(weights=Swin_V2_T_Weights.IMAGENET1K_V1)
 
@@ -102,11 +103,13 @@ class Swin_V2_t_Transfer(nn.Module):
             p.requires_grad = False
 
         in_features = self.backbone.head.in_features
-        
-        self.backbone.head = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
+        if(head=="BASE"):
+            self.backbone.head = nn.Sequential(
+                nn.Dropout(dropout),
+                nn.Linear(in_features, NUM_CLASSES),
+            )
+        elif (head == "MLP"):
+            self.backbone.head = MLP(layers=[in_features, 256, 128], img_size=64, dropout=0.3, use_bn=True)
 
     def forward(self, x):
         return self.backbone(x)
@@ -251,7 +254,7 @@ class Mobilenet_v3_small_Transfer(nn.Module):
 
 class Efficientnet_v2_s_Transfer(nn.Module):
     
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4, head:str="BASE"):
         super().__init__()
         self.backbone = efficientnet_v2_s(weights=EfficientNet_V2_S_Weights.IMAGENET1K_V1)
 
@@ -264,11 +267,14 @@ class Efficientnet_v2_s_Transfer(nn.Module):
             p.requires_grad = False
 
         in_features = self.backbone.classifier[1].in_features
-        
-        self.backbone.classifier = nn.Sequential( 
-            nn.Dropout(dropout, inplace=True),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
+        if(head == "BASE"):
+            self.backbone.classifier = nn.Sequential( 
+                nn.Dropout(dropout, inplace=True),
+                nn.Linear(in_features, NUM_CLASSES),
+            )
+        elif (head == "MLP"):
+            self.backbone.classifier = MLP(layers=[in_features, 256, 128], img_size=64, dropout=0.3, use_bn=True)
+
 
     def forward(self, x):
         return self.backbone(x)
@@ -402,29 +408,6 @@ class alexnet_Transfer(nn.Module):
     def forward(self, x):
         return self.backbone(x)
 
-class Inception_v3_Transfer(nn.Module):
-    
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.Conv2d_1a_3x3.conv = nn.Conv2d(
-                in_channels, 32, kernel_size=(3, 3), stride=(2, 2), bias=False
-            )
-
-        for p in self.backbone.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.fc.in_features
-        
-        self.backbone.classifier = nn.Sequential(
-            nn.Dropout(dropout,inplace=True),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
-
-    def forward(self, x):
-        return self.backbone(x)
 
 
 # ── fine-tuning utilities ──────────────────────────────────────────────────────
