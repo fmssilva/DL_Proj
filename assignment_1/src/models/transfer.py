@@ -20,6 +20,7 @@ from torchvision.models import (
     alexnet, AlexNet_Weights,
 )
 
+
 from .mlp import MLP
 
 from ..config import NUM_CLASSES
@@ -109,7 +110,7 @@ class Swin_V2_t_Transfer(nn.Module):
                 nn.Linear(in_features, NUM_CLASSES),
             )
         elif (head == "MLP"):
-            self.backbone.head = MLP(layers=[in_features, 256, 128], img_size=64, dropout=0.3, use_bn=True)
+            self.backbone.head = MLP(layers=[512, 256, 128], input_dim=in_features, dropout=0.3, use_bn=True)
 
     def forward(self, x):
         return self.backbone(x)
@@ -273,7 +274,7 @@ class Efficientnet_v2_s_Transfer(nn.Module):
                 nn.Linear(in_features, NUM_CLASSES),
             )
         elif (head == "MLP"):
-            self.backbone.classifier = MLP(layers=[in_features, 256, 128], img_size=64, dropout=0.3, use_bn=True)
+            self.backbone.head = MLP(layers=[512, 256, 128], input_dim=in_features, dropout=0.3, use_bn=True)
 
 
     def forward(self, x):

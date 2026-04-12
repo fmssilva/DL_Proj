@@ -74,9 +74,11 @@ class MLP(nn.Module):
         dropout: float = 0.4,
         use_bn: bool = True,
         use_residual: bool = False,
+        input_dim: int = None
     ):
         super().__init__()
-        input_dim = img_size * img_size * in_channels
+        if input_dim is None:
+            input_dim = img_size * img_size * in_channels
 
         if use_residual:
             # residual blocks require a fixed width — fail loudly if the caller forgets
