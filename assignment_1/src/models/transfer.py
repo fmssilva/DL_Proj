@@ -264,7 +264,7 @@ _HEAD_NAMES = {"classifier", "fc", "head"}
 
 
 def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
-    """Universal unfreeze for ResNet, EfficientNet, Swin, ConvNeXt, VGG.
+    """Universal unfreeze for ConvNeXt, ResNet, EfficientNet, Swin, VGG.
     n_layers=1 -> unfreeze last real block.
     n_layers=-1 -> unfreeze entire backbone.
     """
@@ -280,35 +280,32 @@ def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
             for p in child.parameters():
                 p.requires_grad = True
 
+    name = model.backbone.__class__.__name__
+
     # -----------------------------
     # ARCHITECTURE-SPECIFIC HANDLING
     # -----------------------------
-    name = model.backbone.__class__.__name__
 
     # ===== ConvNeXt =====
     if "ConvNeXt" in name:
-        stages = [
-            model.backbone.features[1],
-            model.backbone.features[2],
-            model.backbone.features[3],
-            model.backbone.features[4],
+        blocks = [
+            model.backbone.features[1],  # stage1
+            model.backbone.features[2],  # stage2
+            model.backbone.features[3],  # stage3
+            model.backbone.features[4],  # stage4
         ]
-        blocks = stages
+
+    # ===== ResNet (robust detection) =====
+    elif "ResNet" in name or hasattr(model.backbone, "layer4"):
+        blocks = []
+        for lname in ["layer1", "layer2", "layer3", "layer4"]:
+            if hasattr(model.backbone, lname):
+                blocks.append(getattr(model.backbone, lname))
 
     # ===== EfficientNet =====
-    elif "EfficientNet" in name:
+    elif "EfficientNet" in name or hasattr(model.backbone, "features"):
         # EfficientNet features = Sequential([...])
-        # Each element is a block
         blocks = list(model.backbone.features)
-
-    # ===== ResNet =====
-    elif "ResNet" in name:
-        blocks = [
-            model.backbone.layer1,
-            model.backbone.layer2,
-            model.backbone.layer3,
-            model.backbone.layer4,
-        ]
 
     # ===== Swin Transformer =====
     elif "Swin" in name:
@@ -322,18 +319,16 @@ def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
 
     # ===== VGG =====
     elif "VGG" in name:
-        # VGG.features = 31 layers; group into 5 conv blocks
-        # block boundaries: [0-4], [5-9], [10-16], [17-23], [24-30]
         f = model.backbone.features
         blocks = [
-            f[0:5],
-            f[5:10],
-            f[10:17],
-            f[17:24],
-            f[24:31],
+            f[0:5],    # conv1
+            f[5:10],   # conv2
+            f[10:17],  # conv3
+            f[17:24],  # conv4
+            f[24:31],  # conv5
         ]
 
-    # ===== fallback: original logic =====
+    # ===== fallback =====
     else:
         children = list(model.backbone.named_children())
         blocks = [
@@ -357,6 +352,7 @@ def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
             p.requires_grad = True
 
     _print_param_counts(model, n_layers)
+
 
 
 def _print_param_counts(model: nn.Module, n_layers: int) -> None:
