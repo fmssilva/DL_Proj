@@ -276,6 +276,35 @@ def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
     for p in model.backbone.parameters():
         p.requires_grad = False
 
+    if "ConvNeXt" in model.backbone.__class__.__name__:
+        stages = [
+            model.backbone.features[1],  
+            model.backbone.features[2],  
+            model.backbone.features[3],  
+            model.backbone.features[4],  
+        ]
+
+        
+
+        if n_layers == -1:
+            to_unfreeze = stages
+        elif n_layers > 0:
+            to_unfreeze = stages[-n_layers:]
+        else:
+            to_unfreeze = []
+
+        for stage in to_unfreeze:
+            for p in stage.parameters():
+                p.requires_grad = True
+                
+        for name, child in model.backbone.named_children():
+            if name in _HEAD_NAMES:
+                for p in child.parameters():
+                    p.requires_grad = True
+
+        _print_param_counts(model, n_layers)
+        return
+
     if n_layers == 0:
         # just make sure the head stays trainable
         for name, child in model.backbone.named_children():
