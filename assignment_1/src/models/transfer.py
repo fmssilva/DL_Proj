@@ -243,7 +243,7 @@ class Efficientnet_v2_s_Transfer(nn.Module):
             self.backbone.classifier = MLP(layers=[512, 256, 128], input_dim=in_features, dropout=dropout, use_bn=False)
 
         elif (head == "SIMPLE"):
-            self.backbone.head = nn.Sequential(
+            self.backbone.classifier = nn.Sequential(
             nn.LayerNorm(in_features),
             nn.Linear(in_features, 256),
             nn.ReLU(),
