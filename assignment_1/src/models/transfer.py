@@ -264,70 +264,97 @@ _HEAD_NAMES = {"classifier", "fc", "head"}
 
 
 def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
-    """Unfreeze the last n_layers top-level children of model.backbone.
-    n_layers=0  -> keep everything frozen (same as __init__)
-    n_layers=1  -> unfreeze last 1 block (partial fine-tune, Stage 2F)
-    n_layers=-1 -> unfreeze all backbone layers (full fine-tune, Stage 2G)
-    The head (classifier/fc/head) is always kept trainable regardless.
-    Prints trainable/total param counts so the notebook output is self-documenting."""
-    assert hasattr(model, "backbone"), "unfreeze_backbone: model must have a .backbone attribute"
+    """Universal unfreeze for ResNet, EfficientNet, Swin, ConvNeXt, VGG.
+    n_layers=1 -> unfreeze last real block.
+    n_layers=-1 -> unfreeze entire backbone.
+    """
+    assert hasattr(model, "backbone"), "model must have .backbone"
 
-    # re-freeze everything first so n_layers=0 is a clean no-op
+    # 1) Freeze everything first
     for p in model.backbone.parameters():
         p.requires_grad = False
 
-    if "ConvNeXt" in model.backbone.__class__.__name__:
-        stages = [
-            model.backbone.features[1],  
-            model.backbone.features[2],  
-            model.backbone.features[3],  
-            model.backbone.features[4],  
-        ]
-
-        
-
-        if n_layers == -1:
-            to_unfreeze = stages
-        elif n_layers > 0:
-            to_unfreeze = stages[-n_layers:]
-        else:
-            to_unfreeze = []
-
-        for stage in to_unfreeze:
-            for p in stage.parameters():
-                p.requires_grad = True
-                
-        for name, child in model.backbone.named_children():
-            if name in _HEAD_NAMES:
-                for p in child.parameters():
-                    p.requires_grad = True
-
-        _print_param_counts(model, n_layers)
-        return
-
-    if n_layers == 0:
-        # just make sure the head stays trainable
-        for name, child in model.backbone.named_children():
-            if name in _HEAD_NAMES:
-                for p in child.parameters():
-                    p.requires_grad = True
-        _print_param_counts(model, n_layers)
-        return
-
-    children = list(model.backbone.named_children())
-    # skip head and param-free children (e.g. avgpool) when counting "backbone blocks"
-    backbone_children = [
-        name for name, child in children
-        if name not in _HEAD_NAMES and sum(p.numel() for p in child.parameters()) > 0
-    ]
-
-    # n_layers=-1 -> all backbone blocks; n_layers>0 -> last n blocks
-    to_unfreeze = set(backbone_children if n_layers == -1 else backbone_children[-n_layers:])
-
-    for name, child in children:
-        if name in to_unfreeze or name in _HEAD_NAMES:
+    # Always keep head trainable
+    for name, child in model.backbone.named_children():
+        if name in _HEAD_NAMES:
             for p in child.parameters():
                 p.requires_grad = True
+
+    # -----------------------------
+    # ARCHITECTURE-SPECIFIC HANDLING
+    # -----------------------------
+    name = model.backbone.__class__.__name__
+
+    # ===== ConvNeXt =====
+    if "ConvNeXt" in name:
+        stages = [
+            model.backbone.features[1],
+            model.backbone.features[2],
+            model.backbone.features[3],
+            model.backbone.features[4],
+        ]
+        blocks = stages
+
+    # ===== EfficientNet =====
+    elif "EfficientNet" in name:
+        # EfficientNet features = Sequential([...])
+        # Each element is a block
+        blocks = list(model.backbone.features)
+
+    # ===== ResNet =====
+    elif "ResNet" in name:
+        blocks = [
+            model.backbone.layer1,
+            model.backbone.layer2,
+            model.backbone.layer3,
+            model.backbone.layer4,
+        ]
+
+    # ===== Swin Transformer =====
+    elif "Swin" in name:
+        # Swin stores stages inside backbone.features[2:6]
+        blocks = [
+            model.backbone.features[2],
+            model.backbone.features[3],
+            model.backbone.features[4],
+            model.backbone.features[5],
+        ]
+
+    # ===== VGG =====
+    elif "VGG" in name:
+        # VGG.features = 31 layers; group into 5 conv blocks
+        # block boundaries: [0-4], [5-9], [10-16], [17-23], [24-30]
+        f = model.backbone.features
+        blocks = [
+            f[0:5],
+            f[5:10],
+            f[10:17],
+            f[17:24],
+            f[24:31],
+        ]
+
+    # ===== fallback: original logic =====
+    else:
+        children = list(model.backbone.named_children())
+        blocks = [
+            child for name, child in children
+            if name not in _HEAD_NAMES and sum(p.numel() for p in child.parameters()) > 0
+        ]
+
+    # -----------------------------
+    # SELECT BLOCKS TO UNFREEZE
+    # -----------------------------
+    if n_layers == -1:
+        to_unfreeze = blocks
+    elif n_layers > 0:
+        to_unfreeze = blocks[-n_layers:]
+    else:
+        to_unfreeze = []
+
+    # Apply unfreeze
+    for block in to_unfreeze:
+        for p in block.parameters():
+            p.requires_grad = True
 
     _print_param_counts(model, n_layers)
 
