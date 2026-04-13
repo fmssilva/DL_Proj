@@ -57,7 +57,7 @@ class EfficientNetB0Transfer(nn.Module):
             nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, NUM_CLASSES)
+            nn.Linear(64, NUM_CLASSES)
             )
 
     def forward(self, x):
@@ -98,7 +98,7 @@ class VGG_16_Transfer(nn.Module):
             nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, NUM_CLASSES)
+            nn.Linear(64, NUM_CLASSES)
             )
 
     def forward(self, x):
@@ -137,7 +137,7 @@ class Swin_V2_t_Transfer(nn.Module):
             nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, NUM_CLASSES)
+            nn.Linear(64, NUM_CLASSES)
             )
 
     def forward(self, x):
@@ -173,7 +173,7 @@ class ResNet34_Transfer(nn.Module):
             nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, NUM_CLASSES)
+            nn.Linear(64, NUM_CLASSES)
             )
         
         
@@ -213,7 +213,7 @@ class ConvNext_tiny_Transfer(nn.Module):
             nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, NUM_CLASSES)
+            nn.Linear(64, NUM_CLASSES)
             )
 
     def forward(self, x):
@@ -248,7 +248,7 @@ class Efficientnet_v2_s_Transfer(nn.Module):
             nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(256, NUM_CLASSES)
+            nn.Linear(64, NUM_CLASSES)
             )
 
 
