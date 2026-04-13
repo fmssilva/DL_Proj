@@ -208,6 +208,7 @@ class ConvNext_tiny_Transfer(nn.Module):
             )
         elif (head == "SIMPLE"):
             self.backbone.classifier = nn.Sequential(
+            nn.Flatten(start_dim=1), 
             nn.LayerNorm(in_features),
             nn.Linear(in_features, 256),
             nn.ReLU(),
