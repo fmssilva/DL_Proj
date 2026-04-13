@@ -54,7 +54,7 @@ class EfficientNetB0Transfer(nn.Module):
         elif (head == "SIMPLE"):
             self.backbone.classifier = nn.Sequential(
             nn.LayerNorm(in_features),
-            nn.Linear(in_features, 256),
+            nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(256, NUM_CLASSES)
@@ -95,7 +95,7 @@ class VGG_16_Transfer(nn.Module):
         elif (head == "SIMPLE"):
             self.backbone.classifier = nn.Sequential(
             nn.LayerNorm(in_features),
-            nn.Linear(in_features, 256),
+            nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(256, NUM_CLASSES)
@@ -134,7 +134,7 @@ class Swin_V2_t_Transfer(nn.Module):
         elif (head == "SIMPLE"):
             self.backbone.head = nn.Sequential(
             nn.LayerNorm(in_features),
-            nn.Linear(in_features, 256),
+            nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(256, NUM_CLASSES)
@@ -170,7 +170,7 @@ class ResNet34_Transfer(nn.Module):
         elif (head == "SIMPLE"):
             self.backbone.fc = nn.Sequential(
             nn.LayerNorm(in_features),
-            nn.Linear(in_features, 256),
+            nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(256, NUM_CLASSES)
@@ -210,7 +210,7 @@ class ConvNext_tiny_Transfer(nn.Module):
             self.backbone.classifier = nn.Sequential(
             nn.Flatten(start_dim=1), 
             nn.LayerNorm(in_features),
-            nn.Linear(in_features, 256),
+            nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(256, NUM_CLASSES)
@@ -245,7 +245,7 @@ class Efficientnet_v2_s_Transfer(nn.Module):
         elif (head == "SIMPLE"):
             self.backbone.classifier = nn.Sequential(
             nn.LayerNorm(in_features),
-            nn.Linear(in_features, 256),
+            nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(256, NUM_CLASSES)
