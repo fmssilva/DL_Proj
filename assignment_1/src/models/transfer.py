@@ -54,10 +54,10 @@ class EfficientNetB0Transfer(nn.Module):
         elif (head == "SIMPLE"):
             self.backbone.classifier = nn.Sequential(
             nn.LayerNorm(in_features),
-            nn.Linear(in_features, 64),
+            nn.Linear(in_features, 32),
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(64, NUM_CLASSES)
+            nn.Dropout(dropout),
+            nn.Linear(32, NUM_CLASSES)
             )
 
     def forward(self, x):
@@ -97,7 +97,7 @@ class VGG_16_Transfer(nn.Module):
             nn.LayerNorm(in_features),
             nn.Linear(in_features, 64),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(dropout),
             nn.Linear(64, NUM_CLASSES)
             )
 
@@ -136,7 +136,7 @@ class Swin_V2_t_Transfer(nn.Module):
             nn.LayerNorm(in_features),
             nn.Linear(in_features, 64),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(dropout),
             nn.Linear(64, NUM_CLASSES)
             )
 
@@ -172,7 +172,7 @@ class ResNet34_Transfer(nn.Module):
             nn.LayerNorm(in_features),
             nn.Linear(in_features, 64),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(dropout),
             nn.Linear(64, NUM_CLASSES)
             )
         
@@ -212,7 +212,7 @@ class ConvNext_tiny_Transfer(nn.Module):
             nn.LayerNorm(in_features),
             nn.Linear(in_features, 64),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(dropout),
             nn.Linear(64, NUM_CLASSES)
             )
 
@@ -247,7 +247,7 @@ class Efficientnet_v2_s_Transfer(nn.Module):
             nn.LayerNorm(in_features),
             nn.Linear(in_features, 64),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(dropout),
             nn.Linear(64, NUM_CLASSES)
             )
 
