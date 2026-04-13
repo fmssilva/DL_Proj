@@ -110,3 +110,36 @@ def train_one_epoch(
         total_loss += loss.item()
 
     return total_loss / len(loader)
+
+
+
+def evaluate(
+    model: nn.Module,
+    loader: DataLoader,
+    criterion: nn.Module,
+    device: torch.device,
+) -> dict:
+    """Run the model on loader. Returns {"loss": float, "acc": float, "macro_f1": float}."""
+    model.eval()
+    total_loss = 0.0
+    all_preds  = []
+    all_labels = []
+
+    with torch.no_grad():
+        for images, labels in loader:
+            images = images.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
+
+            logits = model(images)
+            loss   = criterion(logits, labels)
+            total_loss += loss.item()
+
+            preds = logits.argmax(dim=1)
+            all_preds.extend(preds.cpu().tolist())
+            all_labels.extend(labels.cpu().tolist())
+
+    avg_loss = total_loss / len(loader)
+    accuracy = sum(p == l for p, l in zip(all_preds, all_labels)) / len(all_labels)
+    macro_f1 = compute_macro_f1(all_labels, all_preds)
+
+    return {"loss": avg_loss, "acc": accuracy, "macro_f1": macro_f1}
