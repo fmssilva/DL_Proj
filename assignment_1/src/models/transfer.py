@@ -30,7 +30,7 @@ from ..config import NUM_CLASSES
 
 class EfficientNetB0Transfer(nn.Module):
     """EfficientNet-B0: backbone frozen, head = Dropout -> Linear(1280, 9)."""
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4, head:str = "BASE"):
         super().__init__()
         self.backbone = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
 
@@ -45,10 +45,20 @@ class EfficientNetB0Transfer(nn.Module):
             p.requires_grad = False
 
         in_features = self.backbone.classifier[1].in_features
-        self.backbone.classifier = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
+
+        if(head == "BASE"):
+            self.backbone.classifier = nn.Sequential(
+                nn.Dropout(dropout),
+                nn.Linear(in_features, NUM_CLASSES),
+            )
+        elif (head == "SIMPLE"):
+            self.backbone.classifier = nn.Sequential(
+            nn.LayerNorm(in_features),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(256, NUM_CLASSES)
+            )
 
     def forward(self, x):
         return self.backbone(x)
@@ -58,7 +68,7 @@ class VGG_16_Transfer(nn.Module):
     """VGG-16: backbone frozen, keeps the original 3-layer head (25088->4096->4096->9).
     This multi-layer head is VGG's original design -- kept to reflect the architecture.
     Note: heavier than other models; may need batch_size=16 on low-VRAM setups."""
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4, head:str = "BASE"):
         super().__init__()
         self.backbone = vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
 
@@ -71,15 +81,25 @@ class VGG_16_Transfer(nn.Module):
             p.requires_grad = False
 
         in_features = self.backbone.classifier[0].in_features
-        self.backbone.classifier = nn.Sequential(
-            nn.Linear(in_features, 4096),
-            nn.ReLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Linear(4096, 4096),
-            nn.ReLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Linear(4096, NUM_CLASSES),
-        )
+
+        if(head == "BASE"):
+            self.backbone.classifier = nn.Sequential(
+                nn.Linear(in_features, 4096),
+                nn.ReLU(inplace=True),
+                nn.Dropout(dropout),
+                nn.Linear(4096, 4096),
+                nn.ReLU(inplace=True),
+                nn.Dropout(dropout),
+                nn.Linear(4096, NUM_CLASSES),
+            )
+        elif (head == "SIMPLE"):
+            self.backbone.classifier = nn.Sequential(
+            nn.LayerNorm(in_features),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(256, NUM_CLASSES)
+            )
 
     def forward(self, x):
         return self.backbone(x)
@@ -110,7 +130,15 @@ class Swin_V2_t_Transfer(nn.Module):
                 nn.Linear(in_features, NUM_CLASSES),
             )
         elif (head == "MLP"):
-            self.backbone.head = MLP(layers=[512, 256, 128], input_dim=in_features, dropout=0.3, use_bn=True)
+            self.backbone.head = MLP(layers=[512, 256, 128], input_dim=in_features, dropout=dropout, use_bn=False)
+        elif (head == "SIMPLE"):
+            self.backbone.head = nn.Sequential(
+            nn.LayerNorm(in_features),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(256, NUM_CLASSES)
+            )
 
     def forward(self, x):
         return self.backbone(x)
@@ -119,7 +147,7 @@ class Swin_V2_t_Transfer(nn.Module):
 class ResNet34_Transfer(nn.Module):
     """ResNet-34: all params frozen, then fc replaced with Dropout -> Linear(512, 9).
     Bug fix: original code had no Dropout despite accepting the param."""
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4, head:str ="BASE"):
         super().__init__()
         self.backbone = resnet34(weights=ResNet34_Weights.IMAGENET1K_V1)
 
@@ -134,10 +162,21 @@ class ResNet34_Transfer(nn.Module):
 
         in_features = self.backbone.fc.in_features
        
-        self.backbone.fc = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
+        if(head == "BASE"):
+            self.backbone.fc = nn.Sequential(
+                nn.Dropout(dropout),
+                nn.Linear(in_features, NUM_CLASSES),
+            )
+        elif (head == "SIMPLE"):
+            self.backbone.fc = nn.Sequential(
+            nn.LayerNorm(in_features),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(256, NUM_CLASSES)
+            )
+        
+        
 
     def forward(self, x):
         return self.backbone(x)
@@ -146,7 +185,7 @@ class ResNet34_Transfer(nn.Module):
 class ConvNext_tiny_Transfer(nn.Module):
     """ConvNeXt-Tiny: features frozen, head = LayerNorm -> Flatten -> Dropout -> Linear(768, 9).
     Bug fix: original used nn.BatchNorm2d(768) on a 1D tensor after GlobalAvgPool -> shape crash."""
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
+    def __init__(self, in_channels: int = 3, dropout: float = 0.4, head:str ="BASE"):
         super().__init__()
         self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
 
@@ -160,98 +199,24 @@ class ConvNext_tiny_Transfer(nn.Module):
 
         in_features = self.backbone.classifier[2].in_features
         
-        self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
-
-    def forward(self, x):
-        return self.backbone(x)
-    
-
-class ConvNext_tiny_Transfer(nn.Module):
-    """ConvNeXt-Tiny: features frozen, head = LayerNorm -> Flatten -> Dropout -> Linear(768, 9).
-    Bug fix: original used nn.BatchNorm2d(768) on a 1D tensor after GlobalAvgPool -> shape crash."""
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = convnext_tiny(weights=ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 96, kernel_size=4, stride=4
+        if (head =="BASE"):
+            self.backbone.classifier = nn.Sequential(
+                nn.Flatten(start_dim=1),     
+                nn.LayerNorm(in_features),  
+                nn.Dropout(dropout),
+                nn.Linear(in_features, NUM_CLASSES),
             )
-
-        for p in self.backbone.features.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.classifier[2].in_features
-        
-        self.backbone.classifier = nn.Sequential(
-            nn.Flatten(start_dim=1),     
-            nn.LayerNorm(in_features),  
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
-
-    def forward(self, x):
-        return self.backbone(x)
-    
-    
-
-class Mobilenet_v3_large_tranfer(nn.Module):
-    
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 16, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
-            )
-
-        for p in self.backbone.features.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.classifier[3].in_features
-        
-        self.backbone.classifier = nn.Sequential(
-            nn.Linear(in_features=960, out_features=1280, bias=True),
-            nn.Hardswish(),
-            nn.Dropout(p=dropout, inplace=True),
-            nn.Linear(in_features=in_features, out_features=NUM_CLASSES, bias=True)
+        elif (head == "SIMPLE"):
+            self.backbone.classifier = nn.Sequential(
+            nn.LayerNorm(in_features),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(256, NUM_CLASSES)
             )
 
     def forward(self, x):
         return self.backbone(x)
-    
-class Mobilenet_v3_small_Transfer(nn.Module):
-    
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = mobilenet_v3_small(weights=MobileNet_V3_Small_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 16, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
-            )
-
-        for p in self.backbone.features.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.classifier[3].in_features
-        
-        self.backbone.classifier = nn.Sequential(
-            nn.Linear(in_features=576, out_features=1024, bias=True),
-            nn.Hardswish(),
-            nn.Dropout(p=dropout, inplace=True),
-            nn.Linear(in_features=in_features, out_features=NUM_CLASSES, bias=True)
-        )
-
-    def forward(self, x):
-        return self.backbone(x)
-    
 
 class Efficientnet_v2_s_Transfer(nn.Module):
     
@@ -274,137 +239,17 @@ class Efficientnet_v2_s_Transfer(nn.Module):
                 nn.Linear(in_features, NUM_CLASSES),
             )
         elif (head == "MLP"):
-            self.backbone.classifier = MLP(layers=[512, 256, 128], input_dim=in_features, dropout=0.3, use_bn=True)
+            self.backbone.classifier = MLP(layers=[512, 256, 128], input_dim=in_features, dropout=dropout, use_bn=False)
 
-
-    def forward(self, x):
-        return self.backbone(x)
-    
-
-class Efficientnet_v2_m_Transfer(nn.Module):
-    
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = efficientnet_v2_m(weights=EfficientNet_V2_M_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 24, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
+        elif (head == "SIMPLE"):
+            self.backbone.head = nn.Sequential(
+            nn.LayerNorm(in_features),
+            nn.Linear(in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(256, NUM_CLASSES)
             )
 
-        for p in self.backbone.features.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.classifier[1].in_features
-        
-        self.backbone.classifier = nn.Sequential( 
-            nn.Dropout(dropout, inplace=True),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
-
-    def forward(self, x):
-        return self.backbone(x)
-    
-
-class Googlenet_Transfer(nn.Module):
-    
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = googlenet(weights=GoogLeNet_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.conv1.conv = nn.Conv2d(
-                in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
-            )
-
-        for p in self.backbone.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.fc.in_features
-        
-        self.backbone.fc = nn.Sequential( 
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
-
-    def forward(self, x):
-        return self.backbone(x)
-    
-
-class Resnext50_32x4d_Transfer(nn.Module):
-    
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = resnext50_32x4d(weights=ResNeXt50_32X4D_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.conv1 = nn.Conv2d(
-                in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
-            )
-
-        for p in self.backbone.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.fc.in_features
-        
-        self.backbone.fc = nn.Sequential( 
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
-
-    def forward(self, x):
-        return self.backbone(x)
-
-
-class Resnext101_64x4d_Transfer(nn.Module):
-    
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = resnext101_64x4d(weights=ResNeXt101_64X4D_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.conv1 = nn.Conv2d(
-                in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
-            )
-
-        for p in self.backbone.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.fc.in_features
-        
-        self.backbone.fc = nn.Sequential( 
-            nn.Dropout(dropout),
-            nn.Linear(in_features, NUM_CLASSES),
-        )
-
-    def forward(self, x):
-        return self.backbone(x)
-    
-class alexnet_Transfer(nn.Module):
-    
-    def __init__(self, in_channels: int = 3, dropout: float = 0.4):
-        super().__init__()
-        self.backbone = alexnet(weights=AlexNet_Weights.IMAGENET1K_V1)
-
-        if in_channels != 3:
-            self.backbone.features[0][0] = nn.Conv2d(
-                in_channels, 64, kernel_size=(11, 11), stride=(4, 4), padding=(2, 2)
-            )
-
-        for p in self.backbone.features.parameters():
-            p.requires_grad = False
-
-        in_features = self.backbone.classifier[6].in_features
-        
-        self.backbone.classifier = nn.Sequential(
-            nn.Dropout(p=0.5, inplace=False),
-            nn.Linear(in_features=9216, out_features=4096, bias=True),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=dropout, inplace=False),
-            nn.Linear(in_features=4096, out_features=4096, bias=True),
-            nn.ReLU(inplace=True),
-            nn.Linear(in_features, NUM_CLASSES, bias=True),
-        )
 
     def forward(self, x):
         return self.backbone(x)
