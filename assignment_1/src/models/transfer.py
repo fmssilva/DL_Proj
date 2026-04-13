@@ -54,10 +54,10 @@ class EfficientNetB0Transfer(nn.Module):
         elif (head == "SIMPLE"):
             self.backbone.classifier = nn.Sequential(
             nn.LayerNorm(in_features),
-            nn.Linear(in_features, 32),
+            nn.Linear(in_features, 64),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(32, NUM_CLASSES)
+            nn.Linear(64, NUM_CLASSES)
             )
 
     def forward(self, x):
