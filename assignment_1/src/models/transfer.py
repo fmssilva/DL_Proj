@@ -283,68 +283,94 @@ _HEAD_NAMES = {"classifier", "fc", "head"}
 
 def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
     """Universal unfreeze for ConvNeXt, ResNet, EfficientNet, Swin, VGG.
-    n_layers=1 -> unfreeze last real block.
-    n_layers=-1 -> unfreeze entire backbone.
+
+    n_layers=1  -> unfreeze last real block (+ stem/norm extras on full unfreeze).
+    n_layers=-1 -> unfreeze entire backbone (ALL non-head params become trainable).
+
+    The function first re-freezes every backbone param, re-enables the head,
+    then selectively unfreezes the requested number of backbone blocks.
+
+    Architecture-specific notes
+    ---------------------------
+    ConvNeXt : features[0]=stem, features[1..7]=blocks+downsamples. All 8 children covered.
+    ResNet   : stem = (conv1, bn1). blocks = [layer1, layer2, layer3, layer4].
+               Stem is included in full unfreeze (-1) and excluded from partial.
+    Swin     : backbone.norm (LayerNorm) sits between features and head.
+               Always unfrozen together with the selected blocks so gradients flow.
+    VGG      : features split into 5 conv groups matching the 5 pooling stages.
+    EfficientNet: features[0]=stem, features[1..7]=MBConv stages, features[8]=top conv+BN.
+               For n_layers=1, unfreeze the last MBConv *stage* (features[-2]),
+               NOT the tiny top-conv (features[-1]) which is just a projection layer.
     """
     assert hasattr(model, "backbone"), "model must have .backbone"
 
-    
+    # Step 1: freeze everything, then restore head
     for p in model.backbone.parameters():
         p.requires_grad = False
-
-    for name, child in model.backbone.named_children():
-        if name in _HEAD_NAMES:
+    for child_name, child in model.backbone.named_children():
+        if child_name in _HEAD_NAMES:
             for p in child.parameters():
                 p.requires_grad = True
 
-    name = model.backbone.__class__.__name__
+    arch = model.backbone.__class__.__name__
 
-    if "ConvNeXt" in name:
+    # ── collect blocks (ordered shallow → deep) ──────────────────────────
+    # "stem_extras" are early layers (stem, input-norm) → only on full unfreeze (-1)
+    # "bridge_extras" sit between last block and head → always unfrozen with blocks
+    blocks = []
+    stem_extras = []     # unfrozen only on n_layers == -1
+    bridge_extras = []   # unfrozen on any partial or full unfreeze
+
+    if "Swin" in arch:
+        # features[0..1]=patch embed + norm, features[2..5]=transformer stages, [6..7]=down+norm
+        blocks = list(model.backbone.features.children())
+        # backbone.norm is a separate child that MUST be unfrozen for gradient flow
+        if hasattr(model.backbone, "norm"):
+            bridge_extras = [model.backbone.norm]
+
+    elif "ConvNeXt" in arch:
+        # features has 8 children: [0]=stem, [1..7]=stages+downsamples
+        blocks = list(model.backbone.features.children())
+
+    elif "VGG" in arch:
+        f = model.backbone.features
         blocks = [
-            model.backbone.features[1],  
-            model.backbone.features[2],  
-            model.backbone.features[3],  
-            model.backbone.features[4],  
+            f[0:5],     # conv block 1
+            f[5:10],    # conv block 2
+            f[10:17],   # conv block 3
+            f[17:24],   # conv block 4
+            f[24:31],   # conv block 5
         ]
 
-    elif "ResNet" in name or hasattr(model.backbone, "layer4"):
-        blocks = []
-        for lname in ["layer1", "layer2", "layer3", "layer4"]:
+    elif "ResNet" in arch or hasattr(model.backbone, "layer4"):
+        # stem = conv1 + bn1 (not inside any layerN)
+        for sname in ("conv1", "bn1"):
+            if hasattr(model.backbone, sname):
+                stem_extras.append(getattr(model.backbone, sname))
+        for lname in ("layer1", "layer2", "layer3", "layer4"):
             if hasattr(model.backbone, lname):
                 blocks.append(getattr(model.backbone, lname))
 
-    elif "EfficientNet" in name or hasattr(model.backbone, "features"):
-        blocks = list(model.backbone.features)
-
-    elif "Swin" in name:
-        blocks = [
-            model.backbone.features[2],
-            model.backbone.features[3],
-            model.backbone.features[4],
-            model.backbone.features[5],
-        ]
-
-    elif "VGG" in name:
-        f = model.backbone.features
-        blocks = [
-            f[0:5],    
-            f[5:10],   
-            f[10:17],  
-            f[17:24],  
-            f[24:31],  
-        ]
+    elif "EfficientNet" in arch or hasattr(model.backbone, "features"):
+        # features children: [0]=stem Conv2d+BN, [1..N-2]=MBConv stages, [N-1]=top Conv2d+BN
+        # The top projection (features[-1]) is a bridge between last MBConv and classifier.
+        all_children = list(model.backbone.features.children())
+        blocks = all_children[:-1]           # stem + MBConv stages
+        bridge_extras = [all_children[-1]]   # top Conv2d+BN: always unfrozen with blocks
 
     else:
-        children = list(model.backbone.named_children())
+        # generic fallback: every non-head child with parameters
         blocks = [
-            child for name, child in children
-            if name not in _HEAD_NAMES and sum(p.numel() for p in child.parameters()) > 0
+            child for child_name, child in model.backbone.named_children()
+            if child_name not in _HEAD_NAMES
+            and sum(p.numel() for p in child.parameters()) > 0
         ]
 
+    # ── select which blocks to unfreeze ──────────────────────────────────
     if n_layers == -1:
-        to_unfreeze = blocks
+        to_unfreeze = blocks + stem_extras + bridge_extras   # everything
     elif n_layers > 0:
-        to_unfreeze = blocks[-n_layers:]
+        to_unfreeze = blocks[-n_layers:] + bridge_extras
     else:
         to_unfreeze = []
 
