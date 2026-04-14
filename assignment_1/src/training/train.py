@@ -12,40 +12,6 @@ from torch.amp import GradScaler, autocast
 
 from ..evaluation.metrics import compute_macro_f1
 
-import numpy as np
-import random
-
-def mixup_data(x, y, alpha=0.4):
-    lam = np.random.beta(alpha, alpha)
-    batch_size = x.size(0)
-    index = torch.randperm(batch_size).to(x.device)
-
-    mixed_x = lam * x + (1 - lam) * x[index]
-    y_a, y_b = y, y[index]
-    return mixed_x, y_a, y_b, lam
-
-
-def cutmix_data(x, y, alpha=0.4):
-    lam = np.random.beta(alpha, alpha)
-    batch_size, _, H, W = x.size()
-    index = torch.randperm(batch_size).to(x.device)
-
-    cut_w = int(W * np.sqrt(1 - lam))
-    cut_h = int(H * np.sqrt(1 - lam))
-    cx = np.random.randint(W)
-    cy = np.random.randint(H)
-
-    x1 = np.clip(cx - cut_w // 2, 0, W)
-    x2 = np.clip(cx + cut_w // 2, 0, W)
-    y1 = np.clip(cy - cut_h // 2, 0, H)
-    y2 = np.clip(cy + cut_h // 2, 0, H)
-
-    x[:, :, y1:y2, x1:x2] = x[index, :, y1:y2, x1:x2]
-
-    y_a, y_b = y, y[index]
-    lam = 1 - ((x2 - x1) * (y2 - y1) / (W * H))
-    return x, y_a, y_b, lam
-
 
 def train_one_epoch(
     model: nn.Module,
@@ -54,8 +20,6 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     device: torch.device,
     scaler: Optional[GradScaler] = None,
-    use_mixup_cutmix: bool = False,
-    alpha: float = 0.4,
 ) -> float:
     """One full pass over the training loader. Returns average loss."""
     model.train()
@@ -67,31 +31,10 @@ def train_one_epoch(
 
         optimizer.zero_grad()
 
-        # -----------------------------
-        # MixUp / CutMix
-        # -----------------------------
-        mode = None
-        lam = 1.0
-
-        if use_mixup_cutmix:
-            r = random.random()
-            if r < 0.5:
-                images, y_a, y_b, lam = mixup_data(images, labels, alpha)
-                mode = "mixup"
-            else:
-                images, y_a, y_b, lam = cutmix_data(images, labels, alpha)
-                mode = "cutmix"
-
-        # -----------------------------
-        # Forward + backward (AMP aware)
-        # -----------------------------
         if scaler is not None:
             with autocast(device_type=device.type):
                 logits = model(images)
-                if mode in ("mixup", "cutmix"):
-                    loss = lam * criterion(logits, y_a) + (1 - lam) * criterion(logits, y_b)
-                else:
-                    loss = criterion(logits, labels)
+                loss = criterion(logits, labels)
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -99,10 +42,7 @@ def train_one_epoch(
 
         else:
             logits = model(images)
-            if mode in ("mixup", "cutmix"):
-                loss = lam * criterion(logits, y_a) + (1 - lam) * criterion(logits, y_b)
-            else:
-                loss = criterion(logits, labels)
+            loss   = criterion(logits, labels)
 
             loss.backward()
             optimizer.step()

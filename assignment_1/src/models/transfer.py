@@ -10,14 +10,8 @@ from torchvision.models import (
     swin_v2_t, Swin_V2_T_Weights,
     resnet34, ResNet34_Weights,
     convnext_tiny, ConvNeXt_Tiny_Weights,
-    mobilenet_v3_large, MobileNet_V3_Large_Weights,
-    mobilenet_v3_small, MobileNet_V3_Small_Weights,
     efficientnet_v2_s, EfficientNet_V2_S_Weights,
-    efficientnet_v2_m, EfficientNet_V2_M_Weights,
-    googlenet, GoogLeNet_Weights,
-    resnext50_32x4d, ResNeXt50_32X4D_Weights,
-    resnext101_64x4d, ResNeXt101_64X4D_Weights,
-    alexnet, AlexNet_Weights,
+    resnet18, ResNet18_Weights
 )
 
 
@@ -254,6 +248,31 @@ class Efficientnet_v2_s_Transfer(nn.Module):
 
     def forward(self, x):
         return self.backbone(x)
+    
+
+class ResNet18Transfer(nn.Module):
+    def __init__(self, dropout=0.5):
+        super().__init__()
+        self.backbone = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+
+        
+        for param in self.backbone.parameters():
+            param.requires_grad = False
+
+        in_features = self.backbone.fc.in_features
+        
+        self.fc = nn.Sequential(
+            nn.Linear(in_features, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout),
+            nn.Linear(128, NUM_CLASSES)
+        )
+
+
+    def forward(self, x):
+        feat = self.backbone(x)
+        return self.fc(feat)
 
 
 
@@ -270,11 +289,10 @@ def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
     """
     assert hasattr(model, "backbone"), "model must have .backbone"
 
-    # 1) Freeze everything first
+    
     for p in model.backbone.parameters():
         p.requires_grad = False
 
-    # Always keep head trainable
     for name, child in model.backbone.named_children():
         if name in _HEAD_NAMES:
             for p in child.parameters():
@@ -282,34 +300,24 @@ def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
 
     name = model.backbone.__class__.__name__
 
-    # -----------------------------
-    # ARCHITECTURE-SPECIFIC HANDLING
-    # -----------------------------
-
-    # ===== ConvNeXt =====
     if "ConvNeXt" in name:
         blocks = [
-            model.backbone.features[1],  # stage1
-            model.backbone.features[2],  # stage2
-            model.backbone.features[3],  # stage3
-            model.backbone.features[4],  # stage4
+            model.backbone.features[1],  
+            model.backbone.features[2],  
+            model.backbone.features[3],  
+            model.backbone.features[4],  
         ]
 
-    # ===== ResNet (robust detection) =====
     elif "ResNet" in name or hasattr(model.backbone, "layer4"):
         blocks = []
         for lname in ["layer1", "layer2", "layer3", "layer4"]:
             if hasattr(model.backbone, lname):
                 blocks.append(getattr(model.backbone, lname))
 
-    # ===== EfficientNet =====
     elif "EfficientNet" in name or hasattr(model.backbone, "features"):
-        # EfficientNet features = Sequential([...])
         blocks = list(model.backbone.features)
 
-    # ===== Swin Transformer =====
     elif "Swin" in name:
-        # Swin stores stages inside backbone.features[2:6]
         blocks = [
             model.backbone.features[2],
             model.backbone.features[3],
@@ -317,18 +325,16 @@ def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
             model.backbone.features[5],
         ]
 
-    # ===== VGG =====
     elif "VGG" in name:
         f = model.backbone.features
         blocks = [
-            f[0:5],    # conv1
-            f[5:10],   # conv2
-            f[10:17],  # conv3
-            f[17:24],  # conv4
-            f[24:31],  # conv5
+            f[0:5],    
+            f[5:10],   
+            f[10:17],  
+            f[17:24],  
+            f[24:31],  
         ]
 
-    # ===== fallback =====
     else:
         children = list(model.backbone.named_children())
         blocks = [
@@ -336,9 +342,6 @@ def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
             if name not in _HEAD_NAMES and sum(p.numel() for p in child.parameters()) > 0
         ]
 
-    # -----------------------------
-    # SELECT BLOCKS TO UNFREEZE
-    # -----------------------------
     if n_layers == -1:
         to_unfreeze = blocks
     elif n_layers > 0:
@@ -346,7 +349,6 @@ def unfreeze_backbone(model: nn.Module, n_layers: int) -> None:
     else:
         to_unfreeze = []
 
-    # Apply unfreeze
     for block in to_unfreeze:
         for p in block.parameters():
             p.requires_grad = True
@@ -379,7 +381,6 @@ def get_backbone_lr_groups(model: nn.Module, backbone_lr: float, head_lr: float)
         if name in _HEAD_NAMES:
             head_params.extend(params)
         else:
-            # only include params that were unfrozen by unfreeze_backbone
             backbone_params.extend(p for p in params if p.requires_grad)
 
     assert head_params,     "get_backbone_lr_groups: no head params found -- check _HEAD_NAMES"
