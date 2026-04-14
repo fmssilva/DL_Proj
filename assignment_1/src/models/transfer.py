@@ -260,8 +260,8 @@ class ResNet18Transfer(nn.Module):
             param.requires_grad = False
 
         in_features = self.backbone.fc.in_features
-        
-        self.fc = nn.Sequential(
+
+        self.backbone.fc = nn.Sequential(
             nn.Linear(in_features, 128),
             nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
@@ -271,8 +271,7 @@ class ResNet18Transfer(nn.Module):
 
 
     def forward(self, x):
-        feat = self.backbone(x)
-        return self.fc(feat)
+        return self.backbone(x)
 
 
 
